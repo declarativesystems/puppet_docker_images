@@ -2,7 +2,7 @@
 Docker images containing Puppet Enterprise Puppet Master
 
 # What is this?
-A collection of scripts to assemble and create Docker images with a 
+A collection of scripts to assemble and create Docker images with a
 pre-installed Puppet Enterprise Puppet master.
 
 # Why would I want to do that?
@@ -22,17 +22,17 @@ then run the script.  The following steps will then take place:
     the Dockerfile to alter the Puppet Enterprise version
 3.  A container will be created from the image in privileged mode (needed for
     systemd)
-4.  The bash script will ssh into the container.  At this point you will be 
+4.  The bash script will ssh into the container.  At this point you will be
     asked to add the new host to your known hosts and you will then be asked
     for the `root` password which is just `root`
-5.  Once logged in, the Puppet Enterprise installer will be run using the 
+5.  Once logged in, the Puppet Enterprise installer will be run using the
     `all-in-one.answers.txt` file with its default settings
 6.  The image will be committed and tagged with the name in the bash script
 
 Once the process has completed, the new image can be pushed for the Docker Hub.
 
 # Isn't this really insecure
-Yes!  The default passwords are unchanged, etc.  The reason for this is that 
+Yes!  The default passwords are unchanged, etc.  The reason for this is that
 this isn't a system intended for production or even development use - its
 intended to be run from a CI system and then destroyed.  There are no agents
 connecting to it or anything like that.
@@ -52,10 +52,10 @@ throwing them in the too-hard basket- at least for the moment.
 
 # Todo
 * Figure out how to reduce Puppet memory usage and publish a new image.  This
-  is needed to allow this code to work nicely with CI systems such as 
+  is needed to allow this code to work nicely with CI systems such as
   (travis-ci)[http://travis-ci.org/]
 
 # What is the status of this code
-This code is experimental and is in no way supported by Puppet Labs.  Its 
+This code is experimental and is in no way supported by Puppet Labs.  Its
 shamefully basic at the moment as I've written just enough to let me generate
 an image and publish it to Docker Hub.  Pull Requests accepted.
