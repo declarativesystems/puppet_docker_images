@@ -17,6 +17,7 @@ others easily using the Docker Hub
 # How do I use this?
 Edit the bash script and tweak any variables as required (or make a new copy)
 then run the script.  The following steps will then take place:
+
 1.  A centos image will be created and configured to run with systemd and ssh
 2.  The Puppet Enterprise tarball will be downloaded into the image.  Change
     the Dockerfile to alter the Puppet Enterprise version
