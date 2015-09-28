@@ -105,7 +105,7 @@ q_database_install=y
 q_puppetdb_database_name=pe-puppetdb
 
 # String — The password for PuppetDB’s root user.
-q_puppetdb_database_password=$(apg -a 0 -n 1)
+q_puppetdb_database_password=$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 8 | xargs)
 
 # String — PuppetDB’s root user name.
 q_puppetdb_database_user=pe-puppetdb

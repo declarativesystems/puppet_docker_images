@@ -16,7 +16,7 @@ RUN yum -y swap -- remove systemd-container systemd-container-libs -- install sy
   VOLUME [ "/sys/fs/cgroup" ]
 
 # ssh setup
-RUN yum install -y apg sudo openssh-server openssh-clients curl ntpdate
+RUN yum install -y sudo openssh-server openssh-clients curl ntpdate
 RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
 RUN ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key
 RUN mkdir -p /var/run/sshd
