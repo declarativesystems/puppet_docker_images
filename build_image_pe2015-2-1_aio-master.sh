@@ -4,10 +4,10 @@ set -e
 # Use user-supplied hostname if set
 if [ "$1" == "" ] ; then
     export PUPPET_HOSTNAME="pe-puppet.localdomain"
-    IMG_TYPE="private"
+    IMG_TYPE="public"
 else
     export PUPPET_HOSTNAME="$1"
-    IMG_TYPE="public"
+    IMG_TYPE="private"
 fi
 
 
@@ -37,9 +37,9 @@ SSH_PORT=$(docker inspect -f '{{ index .NetworkSettings.Ports "22/tcp" 0 "HostPo
 
 
 echo docker-machine IP $DM_IP, ssh port $SSH_PORT
-sleep 20
+sleep 5
 scp -P $SSH_PORT ./answers/all-in-one.answers.txt "root@${DM_IP}:answers.txt"
 echo "answers file uploaded"
-ssh -p $SSH_PORT root@$DM_IP "cd /root/$PE_MEDIA && ./puppet-enterprise-installer -a /root/answers.txt"
+ssh -p $SSH_PORT root@$DM_IP "cd /root/$PE_MEDIA && export PUPPET_HOSTNAME=${PUPPET_HOSTNAME} && ./puppet-enterprise-installer -a /root/answers.txt"
 
 docker commit $FINALNAME $DOCKER_HUB_NAME
