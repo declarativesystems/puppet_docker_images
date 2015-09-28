@@ -4,15 +4,17 @@ set -e
 # Use user-supplied hostname if set
 if [ "$1" == "" ] ; then
     export PUPPET_HOSTNAME="pe-puppet.localdomain"
+    IMG_TYPE="private"
 else
     export PUPPET_HOSTNAME="$1"
+    IMG_TYPE="public"
 fi
 
 
 BASENAME="pe2015-2-1_centos-7"
-FINALNAME="${BASENAME}_aio-master"
+FINALNAME="${BASENAME}_aio-master_${IMG_TYPE}"
 PE_MEDIA="puppet-enterprise-2015.2.1-el-7-x86_64"
-DOCKER_HUB_NAME="geoffwilliams/${BASENAME}_aio-master:v0"
+DOCKER_HUB_NAME="geoffwilliams/${FINALNAME}:v0"
 
 docker build --rm -t $BASENAME .
 
