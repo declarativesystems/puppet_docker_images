@@ -60,3 +60,6 @@ throwing them in the too-hard basket- at least for the moment.
 This code is experimental and is in no way supported by Puppet Labs.  Its
 shamefully basic at the moment as I've written just enough to let me generate
 an image and publish it to Docker Hub.  Pull Requests accepted.
+
+# Is there a ready-to-use image?
+Sure, have a look at https://hub.docker.com/r/geoffwilliams.  Images seem to do the job for testing but aren't much use as real puppet masters yet.  Need to improve security and figure out what to do with data volumes first.
