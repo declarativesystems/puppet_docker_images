@@ -14,7 +14,7 @@ fi
 BASENAME="pe2015-2-1_centos-7"
 FINALNAME="${BASENAME}_aio-master_${IMG_TYPE}"
 PE_MEDIA="puppet-enterprise-2015.2.1-el-7-x86_64"
-DOCKER_HUB_NAME="geoffwilliams/${FINALNAME}:v0"
+DOCKER_HUB_NAME="geoffwilliams/${FINALNAME}:v1"
 
 docker build --rm -t $BASENAME .
 
