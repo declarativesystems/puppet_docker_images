@@ -49,9 +49,5 @@ EXPOSE 61616
 
 CMD ["/usr/sbin/init"]
 
-VOLUME /etc/puppetlabs
-VOLUME /var/log
-VOLUME /opt/puppetlabs/server/data
-
 # !!!CANNOT!!! RUN THE INSTALLER UNTIL WE HAVE RELOADED IN PRIVILEGED MODE
 #&& ./puppet-enterprise-installer -a answers/all-in-one.answers.txt

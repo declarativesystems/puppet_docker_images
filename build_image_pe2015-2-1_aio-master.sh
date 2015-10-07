@@ -40,6 +40,6 @@ echo docker-machine IP $DM_IP, ssh port $SSH_PORT
 sleep 5
 scp -P $SSH_PORT ./answers/all-in-one.answers.txt "root@${DM_IP}:answers.txt"
 echo "answers file uploaded"
-ssh -p $SSH_PORT root@$DM_IP "cd /root/$PE_MEDIA && export PUPPET_HOSTNAME=${PUPPET_HOSTNAME} && ./puppet-enterprise-installer -a /root/answers.txt"
+ssh -p $SSH_PORT root@$DM_IP "cd /root/$PE_MEDIA && export PUPPET_HOSTNAME=${PUPPET_HOSTNAME} && ./puppet-enterprise-installer -a /root/answers.txt && rm /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub"
 
 docker commit $FINALNAME $DOCKER_HUB_NAME
