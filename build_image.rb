@@ -172,7 +172,7 @@ def build_image
     hieradir = "/etc/puppetlabs/code/environments/production/hieradata"
     puts "uploading low memory hiera defaults"
     ssh("mkdir -p #{hieradir}")
-    scp("./lowmem.yaml", "#{hieradir}/defaults.yaml")
+    scp("./lowmem.yaml", "#{hieradir}/common.yaml")
   end
 
 
