@@ -16,12 +16,12 @@ others easily using the Docker Hub
 
 # Building
 ```shell
-./build_image_pe2015-2-1_aio-master.sh [hostname]
+./build_image.rb --pe-version 2015.2.1 --tag-version VERSION_NUMBER [--hostname HOSTNAME]
 ```
-Build a new docker image.  If hostname is specified your installation will be
-tailored to include it and the image name will include `private`.
-
-You will be asked several times for the `root` ssh password which is `root`.
+Build a new docker image for a given Puppet Enterprise version and tag the 
+resulting image with a version number.  If hostname is specified your 
+installation will be tailored to include it and the image name will include 
+`private`.
 
 # Running
 
@@ -52,13 +52,15 @@ that there is no SSH server available unless you have added one yourself.
 
 ## Advanced
 ```shell
-docker run -d --privileged --name CONTAINER_NAME \
+docker run -d --privileged \
+  --name CONTAINER_NAME \
   --volume /sys/fs/cgroup:/sys/fs/cgroup \
   --volume /etc/puppetlabs \
   --volume /var/log \
-  --volume /opt/puppetlabs/server/data IMAGE_NAME \
+  --volume /opt/puppetlabs/server/data \
   --hostname HOSTNAME \
-  --restart always
+  --restart always \
+  IMAGE_NAME
 pipework br0 CONTAINER_NAME udhcpc
 ```
 Start a docker container that restores itself on reboot, set a hostname and use
@@ -79,19 +81,17 @@ docker push IMAGE_NAME
 ```
 
 # How does the build work?
-1.  A centos image will be created and configured to run with systemd and ssh
-2.  The Puppet Enterprise tarball will be downloaded into the image.  Change
-    the Dockerfile to alter the Puppet Enterprise version
-3.  A container will be created from the image in privileged mode (needed for
+1.  A customised Dockerfile will be created by munging the requested Puppet
+    Enterprise version number into the Dockerfile ERB template
+2.  A centos image will be created and configured to run with systemd and SSH
+3.  The Puppet Enterprise tarball will be downloaded into the image
+4.  A container will be created from the image in privileged mode (needed for
     systemd)
-4.  The bash script will ssh into the container.  At this point you will be
-    asked to add the new host to your known hosts and you will then be asked
-    for the `root` password which is just `root`
-5.  Once logged in, the Puppet Enterprise installer will be run using the
-    `all-in-one.answers.txt` file with the hostname set to whatever the bash
-    script was called with (defaults to `pe-puppet.localdomain`)
-6.  The SSH daemon keys are removed
-7.  The image will be committed and tagged with the name in the bash script
+5.  The script will SSH into the container, run the puppet enterprise installer
+    and then remove the SSH keys.  The Puppet Enterprise installer will be run
+     using the `all-in-one.answers.txt` file with the hostname set to whatever
+    the script was called with (defaults to `pe-puppet.localdomain`)
+6.  The image will be committed and tagged with the name in the bash script
 
 # Security
 This image is primarily targetted at throw-away test environments so security
@@ -106,7 +106,7 @@ settings to be aware of:
 * You should build and host your own image if you would like to choose a more
   suitable hostname and ensure that your passwords are unique
 
-# Bash script? Yuk!  What about Fig or Docker compose...
+# Ruby script? What about Fig or Docker compose...
 I did briefly look at these after a colleague recommended them but I ended up
 throwing them in the too-hard basket- at least for the moment.
 

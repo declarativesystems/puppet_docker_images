@@ -1,6 +1,7 @@
 FROM centos:7
 MAINTAINER Geoff Williams <geoff.williams@puppetlabs.com>
 ENV container docker
+ENV pe_version <%= @pe_version %>
 
 # puppet needs full systemd
 RUN yum -y swap -- remove systemd-container systemd-container-libs -- install systemd systemd-libs \
@@ -33,18 +34,28 @@ RUN systemctl enable sshd
 #RUN systemctl start sshd
 
 # download and unpack PE
-RUN wget -O /root/puppet-enterprise-2015.2.0-el-7-x86_64.tar.gz "https://pm.puppetlabs.com/cgi-bin/download.cgi?dist=el&rel=7&arch=x86_64&ver=latest" && \
-  cd /root/ && tar zxvf puppet-enterprise-2015.2.0-el-7-x86_64.tar.gz && \
-  rm puppet-enterprise-2015.2.0-el-7-x86_64.tar.gz
+RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://pm.puppetlabs.com/cgi-bin/download.cgi?dist=el&rel=7&arch=x86_64&ver=latest" && \
+  cd /root/ && tar zxvf puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz && \
+  rm puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz
 
 # fix locale and paths
 RUN echo 'export LC_ALL="en_US.UTF-8"' >> ~/.bashrc && \
   echo 'export PATH=/opt/puppetlabs/puppet/bin/:${PATH}' >> ~/.bashrc
 
 
+# ssh (there will be no daemon here after installation though)
 EXPOSE 22
+
+# puppet
 EXPOSE 8140
+
+# puppet enterprise web console
 EXPOSE 443
+
+# mcollective agent
+EXPOSE 61613
+
+# mcollective hub/spoke
 EXPOSE 61616
 
 CMD ["/usr/sbin/init"]
