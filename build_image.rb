@@ -4,10 +4,15 @@ require 'getoptlong'
 require 'net/scp'
 require 'net/ssh'
 require 'tmpdir'
+require 'erb'
 
 def show_usage()
   puts <<-EOF
-build_image --pe-version VERSION --tag-version VERSION [--hostname puppet.megacorp.com] [--lowmem]
+build_image --pe-version VERSION \
+            --tag-version VERSION \
+            [--hostname puppet.megacorp.com] \
+            [--lowmem] \
+            [--r10k-control GIT_URL] 
 
 Build a docker image with Puppet Enterprise installed and optionally
 configure a specific hostname and/or low-memory settings
@@ -26,6 +31,12 @@ Options
 --lowmem
   Configure Puppet Enterprise for a low-memory environment 
 
+--r10k-control GIT_URL
+  Bootstrap r10k using supplied URL or default to 
+  https://github.com/GeoffWilliams/r10k-control.  Only supports R10K
+  control repositories forked from the above URL and implementing a 
+  bootstrap.sh install script
+
 Examples
 --------
 build_image.rb --pe-version 2015.2.1 --tag-version 0
@@ -35,7 +46,6 @@ build_image.rb --pe-version 2015.2.1 --tag-version 0
 build_image.rb --pe-version 2015.2.1 --tag-version 0 --hostname puppet.megacorp.com
   Build a docker image for puppet enterprise 2015.2.1 configured for a hostname
   of puppet.megacorp.com and tag it as version 0
-
 EOF
   exit 1
 end
@@ -46,6 +56,7 @@ def parse_command_line()
     [ '--root-passwd',  GetoptLong::REQUIRED_ARGUMENT],
     [ '--pe-version',   GetoptLong::REQUIRED_ARGUMENT],
     [ '--tag-version',  GetoptLong::REQUIRED_ARGUMENT],
+    [ '--r10k-control', GetoptLong::OPTIONAL_ARGUMENT],
     [ '--lowmem',       GetoptLong::NO_ARGUMENT],
     [ '--help',         GetoptLong::NO_ARGUMENT ],
     [ '--debug',        GetoptLong::NO_ARGUMENT],
@@ -65,6 +76,13 @@ def parse_command_line()
       @pe_version = arg
     when '--tag-version'
       @tag_version = arg
+    when '--r10k-control'
+      @r10k_control = true
+      if arg.nil?
+        @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
+      else
+        @r10k_control_url = arg
+      end
     end
   end
 
@@ -116,6 +134,10 @@ def build_image
 
   if @lowmem then
     @img_type += "_lowmem"
+  end
+
+  if @r10k_control then
+    @img_type += "_r10k"
   end
 
   @basename = "pe#{@pe_version}_centos-7"
@@ -184,6 +206,15 @@ def build_image
     rm /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
        /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub"
   )
+
+  if @r10k_control then
+    ssh("
+      git clone #{@r10k_control_url} && \
+      cd r10k-control && \
+      ./bootstrap.sh
+    ") or abort("failed to bootstrap r10k-control")
+  end
+
   system("docker commit #{@finalname} #{@docker_hub_name}") or abort("failed to commit docker image")
 end
 
