@@ -36,7 +36,8 @@ HOSTS:
       - "agent"
       - "master"
     platform: "el-7-x86_64"
-    image: "geoffwilliams/pe2015-2-1_centos-7_aio-master_public:1"
+    image: "geoffwilliams/pe2015-2-1_centos-7_aio-master_public:2"
+    docker_cmd: '["/sbin/init"]'
     hypervisor : "docker"
 ```
 
