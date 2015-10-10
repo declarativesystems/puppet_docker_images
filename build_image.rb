@@ -212,7 +212,7 @@ def build_image
       git clone #{@r10k_control_url} && \
       cd r10k-control && \
       ./bootstrap.sh
-    ") or abort("failed to bootstrap r10k-control")
+    ")
   end
 
   system("docker commit #{@finalname} #{@docker_hub_name}") or abort("failed to commit docker image")
