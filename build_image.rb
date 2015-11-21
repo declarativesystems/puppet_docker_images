@@ -37,6 +37,10 @@ Options
   control repositories forked from the above URL and implementing a 
   bootstrap.sh install script
 
+--puppetfactory
+  Make this image a puppetfactory.  A puppetfactory is a PE master running
+  docker with access to the puppet-dockerbuild.rb script
+
 Examples
 --------
 build_image.rb --pe-version 2015.2.1 --tag-version 0
@@ -52,14 +56,15 @@ end
 
 def parse_command_line()
   opts = GetoptLong.new(
-    [ '--hostname',     GetoptLong::REQUIRED_ARGUMENT],
-    [ '--root-passwd',  GetoptLong::REQUIRED_ARGUMENT],
-    [ '--pe-version',   GetoptLong::REQUIRED_ARGUMENT],
-    [ '--tag-version',  GetoptLong::REQUIRED_ARGUMENT],
-    [ '--r10k-control', GetoptLong::OPTIONAL_ARGUMENT],
-    [ '--lowmem',       GetoptLong::NO_ARGUMENT],
-    [ '--help',         GetoptLong::NO_ARGUMENT ],
-    [ '--debug',        GetoptLong::NO_ARGUMENT],
+    [ '--hostname',       GetoptLong::REQUIRED_ARGUMENT],
+    [ '--root-passwd',    GetoptLong::REQUIRED_ARGUMENT],
+    [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT],
+    [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT],
+    [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT],
+    [ '--lowmem',         GetoptLong::NO_ARGUMENT],
+    [ '--puppetfactory',  GetoptLong::NO_ARGUMENT],
+    [ '--help',           GetoptLong::NO_ARGUMENT ],
+    [ '--debug',          GetoptLong::NO_ARGUMENT],
   )
 
   opts.each do |opt,arg|
@@ -76,6 +81,8 @@ def parse_command_line()
       @pe_version = arg
     when '--tag-version'
       @tag_version = arg
+    when '--puppetfactory'
+      @puppetfactory = true
     when '--r10k-control'
       @r10k_control = true
       if arg.nil?
@@ -104,14 +111,26 @@ def parse_command_line()
   end
 end
 
-def scp(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, local_file, remote_file)
-  Net::SCP.upload!(
-    ip, 
-    user,
-    local_file,
-    remote_file,
-    :ssh => { :password => password, :port => port, :paranoid => Net::SSH::Verifiers::Null.new}
-  )
+def scp(local_file,
+        remote_file,
+        ip:@dm_ip, 
+        port:@ssh_port, 
+        user:"root", 
+        password:@root_passwd, 
+        recursive:false)
+
+  Net::SSH.start( ip, 
+                  user, 
+                  :password => password, 
+                  :port     => port, 
+                  :paranoid => Net::SSH::Verifiers::Null.new) do |ssh|
+
+    ssh.scp.upload!(
+      local_file,
+      remote_file,
+      :recursive => recursive,
+    )
+  end
 end
 
 def ssh(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, command)
@@ -121,6 +140,33 @@ def ssh(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, command)
       puts line
     end
   end
+end
+
+def setup_puppetfactory
+  # download script and module to './build' directory, then SCP to host
+  build_dir = "build"
+  if ! Dir.exists?(build_dir) then
+    Dir.mkdir(build_dir)
+    Dir.chdir(build_dir)
+    system("git clone https://github.com/garethr/garethr-docker")
+    system("git clone https://github.com/GeoffWilliams/puppet-dockerbuild")
+  end
+  Dir.chdir(build_dir)
+  scp("./garethr-docker", "/etc/puppetlabs/code/modules/docker", recursive: true)
+  scp("./puppet-dockerbuild/puppet-dockerbuild.rb", "/usr/local/bin")
+  
+  # install gems and modules needed for script
+  ssh("yum install -y ruby-devel e2fsprogs xfsprogs" )
+  ssh("gem install excon docker-api")
+  ssh("/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/stdlib")
+  ssh("/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/apt")
+  ssh("/opt/puppetlabs/puppet/bin/puppet module install stahnma/epel")
+
+  # install docker
+  ssh("/opt/puppetlabs/puppet/bin/puppet apply -e 'include docker'")
+
+
+
 end
 
 def build_image
@@ -138,6 +184,10 @@ def build_image
 
   if @r10k_control then
     @img_type += "_r10k"
+  end
+
+  if @puppetfactory then
+    @img_type += "_puppetfactory"
   end
 
   @basename = "pe#{@pe_version}_centos-7"
@@ -213,6 +263,10 @@ def build_image
       cd r10k-control && \
       ./bootstrap.sh
     ")
+  end
+
+  if @puppetfactory then
+    setup_puppetfactory
   end
 
   system("docker commit #{@finalname} #{@docker_hub_name}") or abort("failed to commit docker image")

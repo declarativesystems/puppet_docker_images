@@ -58,6 +58,9 @@ EXPOSE 61613
 # mcollective hub/spoke
 EXPOSE 61616
 
+# stop DiD from eating all disk if we choose to use it
+VOLUME [ "/var/lib/docker" ]
+
 CMD ["/usr/sbin/init"]
 
 # !!!CANNOT!!! RUN THE INSTALLER UNTIL WE HAVE RELOADED IN PRIVILEGED MODE
