@@ -12,8 +12,8 @@ build_image --pe-version VERSION \
             --tag-version VERSION \
             [--hostname puppet.megacorp.com] \
             [--lowmem] \
-            [--r10k-control GIT_URL] 
-
+            [--r10k-control GIT_URL] \
+            [--dockerbuild]
 Build a docker image with Puppet Enterprise installed and optionally
 configure a specific hostname and/or low-memory settings
 
@@ -37,9 +37,10 @@ Options
   control repositories forked from the above URL and implementing a 
   bootstrap.sh install script
 
---puppetfactory
-  Make this image a puppetfactory.  A puppetfactory is a PE master running
-  docker with access to the puppet-dockerbuild.rb script
+--dockerbuild
+  Make this image support building docker images with puppet code.  This
+  is a PE master running docker with access to the puppet-dockerbuild.rb 
+  script
 
 Examples
 --------
@@ -56,15 +57,15 @@ end
 
 def parse_command_line()
   opts = GetoptLong.new(
-    [ '--hostname',       GetoptLong::REQUIRED_ARGUMENT],
-    [ '--root-passwd',    GetoptLong::REQUIRED_ARGUMENT],
-    [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT],
-    [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT],
-    [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT],
-    [ '--lowmem',         GetoptLong::NO_ARGUMENT],
-    [ '--puppetfactory',  GetoptLong::NO_ARGUMENT],
+    [ '--hostname',       GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--root-passwd',    GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT ],
+    [ '--lowmem',         GetoptLong::NO_ARGUMENT ],
+    [ '--dockerbuild',    GetoptLong::NO_ARGUMENT ],
     [ '--help',           GetoptLong::NO_ARGUMENT ],
-    [ '--debug',          GetoptLong::NO_ARGUMENT],
+    [ '--debug',          GetoptLong::NO_ARGUMENT ],
   )
 
   opts.each do |opt,arg|
@@ -81,8 +82,8 @@ def parse_command_line()
       @pe_version = arg
     when '--tag-version'
       @tag_version = arg
-    when '--puppetfactory'
-      @puppetfactory = true
+    when '--dockerbuild'
+      @dockerbuild = true
     when '--r10k-control'
       @r10k_control = true
       if arg.nil?
@@ -142,7 +143,7 @@ def ssh(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, command)
   end
 end
 
-def setup_puppetfactory
+def setup_dockerbuild
   # download script and module to './build' directory, then SCP to host
   build_dir = "build"
   if ! Dir.exists?(build_dir) then
@@ -186,8 +187,8 @@ def build_image
     @img_type += "_r10k"
   end
 
-  if @puppetfactory then
-    @img_type += "_puppetfactory"
+  if @dockerbuild then
+    @img_type += "_dockerbuild"
   end
 
   @basename = "pe#{@pe_version}_centos-7"
@@ -265,8 +266,8 @@ def build_image
     ")
   end
 
-  if @puppetfactory then
-    setup_puppetfactory
+  if @dockerbuild then
+    setup_dockerbuild
   end
 
   system("docker commit #{@finalname} #{@docker_hub_name}") or abort("failed to commit docker image")
