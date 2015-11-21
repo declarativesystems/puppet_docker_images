@@ -110,12 +110,12 @@ def scp(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, local_fil
     user,
     local_file,
     remote_file,
-    :ssh => { :password => password, :port => port}
+    :ssh => { :password => password, :port => port, :paranoid => Net::SSH::Verifiers::Null.new}
   )
 end
 
 def ssh(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, command)
-  Net::SSH.start(ip, user, :password => password, :port => port) do |ssh|
+  Net::SSH.start(ip, user, :password => password, :port => port, :paranoid => Net::SSH::Verifiers::Null.new) do |ssh|
     # capture all stderr and stdout output from a remote process
     ssh.exec!(command) do |ch, stream, line|
       puts line
