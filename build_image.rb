@@ -151,8 +151,9 @@ def setup_dockerbuild
     Dir.chdir(build_dir)
     system("git clone https://github.com/garethr/garethr-docker")
     system("git clone https://github.com/GeoffWilliams/puppet-dockerbuild")
+  else 
+    Dir.chdir(build_dir)
   end
-  Dir.chdir(build_dir)
   scp("./garethr-docker", "/etc/puppetlabs/code/modules/docker", recursive: true)
   scp("./puppet-dockerbuild/puppet-dockerbuild.rb", "/usr/local/bin")
   
