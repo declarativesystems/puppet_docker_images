@@ -4,6 +4,7 @@ require 'getoptlong'
 require 'net/scp'
 require 'net/ssh'
 require 'tmpdir'
+require 'tempfile'
 require 'erb'
 
 def show_usage()
@@ -110,6 +111,10 @@ def parse_command_line()
     puts "You must specify a numeric tag for the image"
     show_usage()
   end
+
+  if @hostname.nil?
+    @hostname = "pe-puppet.localdomain"
+  end
 end
 
 def scp(local_file,
@@ -141,6 +146,23 @@ def ssh(ip=@dm_ip, port=@ssh_port, user="root", password=@root_passwd, command)
       puts line
     end
   end
+end
+
+def answer_template
+
+  # passwords - hardcode for now
+  # FIXME generate a random password here
+  @password_pdb = "aaaaaaaa"
+  @password_console = "aaaaaaaa"
+  @shortname = @hostname.gsub(/\..+/, '')
+  @dnsalt="puppet,#{@shortname}"
+  answerfile_erb = File.read("answers/all-in-one.answers.txt.erb")
+  answerfile = ERB.new(answerfile_erb, nil, '-').result(binding)
+  file = Tempfile.new("answers")
+  file.write(answerfile)
+  file.close
+
+  return file
 end
 
 def setup_dockerbuild
@@ -237,8 +259,10 @@ def build_image
   # wait for image to boot, then SCP the answers file
   sleep 5
   puts "uploading answers file"
-  scp("./answers/all-in-one.answers.txt", "/root/answers.txt")
+  answer_file = answer_template
+  scp(answer_file.path, "/root/answers.txt")
   puts "answers file uploaded"
+  answer_file.unlink
 
   # Enable low memory (and low performance) by uploading a YAML file with some
   # puppet hiera settings 
