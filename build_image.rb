@@ -155,7 +155,7 @@ def answer_template
   @password_pdb = "aaaaaaaa"
   @password_console = "aaaaaaaa"
   @shortname = @hostname.gsub(/\..+/, '')
-  @dnsalt="puppet,#{@shortname}"
+  @dnsalt="puppet,#{@shortname},#{@hostname}"
   answerfile_erb = File.read("answers/all-in-one.answers.txt.erb")
   answerfile = ERB.new(answerfile_erb, nil, '-').result(binding)
   file = Tempfile.new("answers")
@@ -277,7 +277,6 @@ def build_image
   # install puppet, then remove ssh
   ssh("
     cd /root/#{@pe_media} && \
-    export PUPPET_HOSTNAME=#{@hostname} && \
     ./puppet-enterprise-installer -a /root/answers.txt && \
     rm /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
        /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub"

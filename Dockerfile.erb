@@ -16,8 +16,8 @@ RUN yum -y swap -- remove systemd-container systemd-container-libs -- install sy
   rm -f /lib/systemd/system/anaconda.target.wants/*;
   VOLUME [ "/sys/fs/cgroup" ]
 
-# ssh setup
-RUN yum install -y sudo openssh-server openssh-clients curl ntpdate
+# ssh and essentials
+RUN yum install -y sudo openssh-server openssh-clients curl ntpdate which
 RUN ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
 RUN ssh-keygen -t dsa -f /etc/ssh/ssh_host_dsa_key
 RUN mkdir -p /var/run/sshd
@@ -34,7 +34,7 @@ RUN systemctl enable sshd
 #RUN systemctl start sshd
 
 # download and unpack PE
-RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://pm.puppetlabs.com/cgi-bin/download.cgi?dist=el&rel=7&arch=x86_64&ver=latest" && \
+RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://s3.amazonaws.com/pe-builds/released/${pe_version}/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz" && \
   cd /root/ && tar zxvf puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz && \
   rm puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz
 
