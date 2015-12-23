@@ -33,6 +33,13 @@ RUN systemctl disable firewalld
 RUN systemctl enable sshd
 #RUN systemctl start sshd
 
+# PE2015.3.0 seems to not be able to find openssl in its own path for 
+# some reason - symlink to /usr/bin and then it should be live when it
+# needs it
+RUN ln -s /opt/puppetlabs/puppet/bin/openssl /usr/bin/openssl
+RUN ln -s /opt/puppetlabs/server/bin/keytool /usr/bin/keytool
+
+
 # download and unpack PE
 RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://s3.amazonaws.com/pe-builds/released/${pe_version}/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz" && \
   cd /root/ && tar zxvf puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz && \
