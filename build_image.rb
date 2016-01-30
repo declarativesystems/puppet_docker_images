@@ -7,6 +7,8 @@ require 'tmpdir'
 require 'tempfile'
 require 'erb'
 
+@default_hostname = "pe-puppet.localdomain"
+
 def show_usage()
   puts <<-EOF
 build_image --pe-version VERSION \
@@ -113,7 +115,7 @@ def parse_command_line()
   end
 
   if @hostname.nil?
-    @hostname = "pe-puppet.localdomain"
+    @hostname = @default_hostname
   end
 end
 
@@ -195,11 +197,10 @@ end
 
 def build_image
   # Use user-supplied hostname if set
-  if @hostname then
-    @img_type = "private"
-  else 
+  if @hostname == @default_hostname then
     @img_type = "public"
-    @hostname = "pe-puppet.localdomain"
+  else
+    @img_type = "private"
   end
 
   if @lowmem then
