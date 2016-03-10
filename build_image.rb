@@ -14,11 +14,18 @@ def show_usage()
 build_image --pe-version VERSION \
             --tag-version VERSION \
             [--hostname puppet.megacorp.com] \
-            [--lowmem] \
+            [--no-lowmem] \
             [--r10k-control GIT_URL] \
-            [--dockerbuild]
-Build a docker image with Puppet Enterprise installed and optionally
-configure a specific hostname and/or low-memory settings
+            [--no-dockerbuild] \
+            [--no-cleanup]
+Build a suit of docker images with Puppet Enterprise installed
+and optionally configure a specific hostname.
+
+By default, the following builds are created:
+* Regular PE monolithic master
+* Low Memory PE monolithic master
+* Dockerbuild (Docker-in-Docker) low memory puppet master for 
+  creating Docker images
 
 Options
 -------
@@ -31,8 +38,9 @@ Options
 --hostname
   Hostname to install Puppet Enterprise for
 
---lowmem
-  Configure Puppet Enterprise for a low-memory environment 
+--no-lowmem
+  Do not create a Docker image for Puppet Enterprise in a low-memory 
+  environment
 
 --r10k-control GIT_URL
   Bootstrap r10k using supplied URL or default to 
@@ -40,10 +48,11 @@ Options
   control repositories forked from the above URL and implementing a 
   bootstrap.sh install script
 
---dockerbuild
-  Make this image support building docker images with puppet code.  This
-  is a PE master running docker with access to the puppet-dockerbuild.rb 
-  script
+--no-dockerbuild
+  Do not produce a dockerbuild image.
+
+--no-cleanup
+  Do not remove the Docker container after build
 
 Examples
 --------
@@ -65,28 +74,31 @@ def parse_command_line()
     [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT ],
     [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT ],
     [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT ],
-    [ '--lowmem',         GetoptLong::NO_ARGUMENT ],
-    [ '--dockerbuild',    GetoptLong::NO_ARGUMENT ],
+    [ '--no-lowmem',      GetoptLong::NO_ARGUMENT ],
+    [ '--no-dockerbuild', GetoptLong::NO_ARGUMENT ],
+    [ '--no-cleanup',     GetoptLong::NO_ARGUMENT ],
     [ '--help',           GetoptLong::NO_ARGUMENT ],
     [ '--debug',          GetoptLong::NO_ARGUMENT ],
   )
-
+  @cleanup = true
+  @lowmem = true
+  @dockerbuild = true
   opts.each do |opt,arg|
     case opt
     when '--help'
       show_usage()
     when '--hostname'
       @hostname = arg
-    when '--lowmem'
-      @lowmem = true
+    when '--no-lowmem'
+      @lowmem = false
     when '--root-passwd'
       @root_passwd = arg
     when '--pe-version'
       @pe_version = arg
     when '--tag-version'
       @tag_version = arg
-    when '--dockerbuild'
-      @dockerbuild = true
+    when '--no-dockerbuild'
+      @dockerbuild = false
     when '--r10k-control'
       @r10k_control = true
       if arg.nil?
@@ -94,6 +106,8 @@ def parse_command_line()
       else
         @r10k_control_url = arg
       end
+    when '--no-cleanup'
+      @cleanup = false
     end
   end
 
@@ -195,30 +209,30 @@ def setup_dockerbuild
 
 end
 
-def build_image
+def build_image(lowmem, dockerbuild)
   # Use user-supplied hostname if set
   if @hostname == @default_hostname then
-    @img_type = "public"
+    img_type = "public"
   else
-    @img_type = "private"
+    img_type = "private"
   end
 
-  if @lowmem then
-    @img_type += "_lowmem"
+  if lowmem then
+    img_type += "_lowmem"
   end
 
   if @r10k_control then
-    @img_type += "_r10k"
+    img_type += "_r10k"
   end
 
-  if @dockerbuild then
-    @img_type += "_dockerbuild"
+  if dockerbuild then
+    img_type += "_dockerbuild"
   end
 
-  @basename = "pe#{@pe_version}_centos-7"
-  @finalname = "#{@basename}_aio-master_#{@img_type}"
+  @basename = "pe_master"
+  @finalname = "#{@basename}_#{img_type}"
   @pe_media ="puppet-enterprise-#{@pe_version}-el-7-x86_64"
-  @docker_hub_name="geoffwilliams/#{@finalname}:v#{@tag_version}"
+  @docker_hub_name="geoffwilliams/#{@finalname}:#{@pe_version}-#{@tag_version}"
 
   # create a Dockerfile from ERB template
   dockerfile_erb = File.read("Dockerfile.erb")
@@ -267,7 +281,7 @@ def build_image
 
   # Enable low memory (and low performance) by uploading a YAML file with some
   # puppet hiera settings 
-  if @lowmem then
+  if lowmem then
     hieradir = "/etc/puppetlabs/code/environments/production/hieradata"
     puts "uploading low memory hiera defaults"
     ssh("mkdir -p #{hieradir}")
@@ -291,16 +305,34 @@ def build_image
     ")
   end
 
-  if @dockerbuild then
+  if dockerbuild then
     setup_dockerbuild
   end
 
   system("docker commit #{@finalname} #{@docker_hub_name}") or abort("failed to commit docker image")
+
+  # kill running container
+  if @cleanup
+    system("docker rm -f #{@finalname}") or 
+      abort("failed to kill running docker containerker image")
+  end
 end
 
 def main()
   parse_command_line()
-  build_image()
+
+  # normal image
+  build_image(false, false)
+
+  # lowmem
+  if @lowmem
+    build_image(true,false)
+  end
+
+  # lowmem + dockerbuild
+  if @dockerbuild
+    build_image(@lowmem,true)
+  end
 end
 
 main
