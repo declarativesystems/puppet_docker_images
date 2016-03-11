@@ -14,6 +14,7 @@ def show_usage()
 build_image --pe-version VERSION \
             --tag-version VERSION \
             [--hostname puppet.megacorp.com] \
+            [--no-regular] \
             [--no-lowmem] \
             [--r10k-control GIT_URL] \
             [--no-dockerbuild] \
@@ -37,6 +38,9 @@ Options
 
 --hostname
   Hostname to install Puppet Enterprise for
+
+--no-regular
+  Do not create a docker image for a regualr Puppet Enterprise server
 
 --no-lowmem
   Do not create a Docker image for Puppet Enterprise in a low-memory 
@@ -74,15 +78,19 @@ def parse_command_line()
     [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT ],
     [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT ],
     [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT ],
+    [ '--no-regular',     GetoptLong::NO_ARGUMENT ],
     [ '--no-lowmem',      GetoptLong::NO_ARGUMENT ],
     [ '--no-dockerbuild', GetoptLong::NO_ARGUMENT ],
     [ '--no-cleanup',     GetoptLong::NO_ARGUMENT ],
     [ '--help',           GetoptLong::NO_ARGUMENT ],
     [ '--debug',          GetoptLong::NO_ARGUMENT ],
   )
-  @cleanup = true
-  @lowmem = true
-  @dockerbuild = true
+  @cleanup        = true
+  @lowmem         = true
+  @dockerbuild    = true
+  @regular        = true
+  @global_mod_dir = "/etc/puppetlabs/code/modules"
+
   opts.each do |opt,arg|
     case opt
     when '--help'
@@ -101,13 +109,15 @@ def parse_command_line()
       @dockerbuild = false
     when '--r10k-control'
       @r10k_control = true
-      if arg.nil?
+      if arg.nil? or arg.empty? then
         @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
       else
         @r10k_control_url = arg
       end
     when '--no-cleanup'
       @cleanup = false
+    when '--no-regular'
+      @regular = false
     end
   end
 
@@ -123,7 +133,7 @@ def parse_command_line()
     show_usage()
   end
 
-  if @tag_version.nil? or ! @tag_version =~ /\d+/
+  if @tag_version.nil? or ! (@tag_version =~ /\d+/) then
     puts "You must specify a numeric tag for the image"
     show_usage()
   end
@@ -183,17 +193,26 @@ end
 
 def setup_dockerbuild
   # download script and module to './build' directory, then SCP to host
-  build_dir = "build"
-  if ! Dir.exists?(build_dir) then
-    Dir.mkdir(build_dir)
-    Dir.chdir(build_dir)
-    system("git clone https://github.com/garethr/garethr-docker")
-    system("git clone https://github.com/GeoffWilliams/puppet-dockerbuild")
-  else 
-    Dir.chdir(build_dir)
+  # if not already there.  If files already exist, they are used directly.
+  # This is to allow in-place testing of local files
+  build_dir = "./build"
+  docker_mod = "garethr-docker"
+  dockerbuild = "puppet-dockerbuild"
+  docker_mod_dir = "#{build_dir}/#{docker_mod}"
+  dockerbuild_dir = "#{build_dir}/#{dockerbuild}"
+  docker_mod_gh = "https://github.com/garethr/#{docker_mod}"
+  dockerbuild_gh = "https://github.com/GeoffWilliams/#{dockerbuild}"
+  git_clone = "git clone"
+  FileUtils.mkdir_p(build_dir)
+  if ! Dir.exists?(docker_mod_dir) then
+    system("#{git_clone} #{docker_mod_gh} #{docker_mod_dir}")
   end
-  scp("./garethr-docker", "/etc/puppetlabs/code/modules/docker", recursive: true)
-  scp("./puppet-dockerbuild/puppet-dockerbuild.rb", "/usr/local/bin")
+  if ! Dir.exists?(dockerbuild_dir) then
+    system("#{git_clone} #{dockerbuild_gh} #{dockerbuild_dir}")
+  end
+  Dir.chdir(build_dir)
+  scp("./#{docker_mod}", "#{@global_mod_dir}/docker", recursive: true)
+  scp("./#{dockerbuild}/puppet-dockerbuild.rb", "/usr/local/bin")
   
   # install gems and modules needed for script
   ssh("yum install -y ruby-devel e2fsprogs xfsprogs" )
@@ -293,6 +312,7 @@ def build_image(lowmem, dockerbuild)
   ssh("
     cd /root/#{@pe_media} && \
     ./puppet-enterprise-installer -a /root/answers.txt && \
+    mkdir -p #{@global_mod_dir} && \
     rm /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
        /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub"
   )
@@ -322,16 +342,18 @@ def main()
   parse_command_line()
 
   # normal image
-  build_image(false, false)
+  if @regular then
+    build_image(false, false)
+  end
 
   # lowmem
-  if @lowmem
+  if @lowmem then
     build_image(true,false)
   end
 
   # lowmem + dockerbuild
-  if @dockerbuild
-    build_image(@lowmem,true)
+  if @dockerbuild then
+    build_image(true,true)
   end
 end
 
