@@ -216,7 +216,7 @@ def setup_dockerbuild
   
   # install gems and modules needed for script
   ssh("yum install -y ruby-devel e2fsprogs xfsprogs" )
-  ssh("gem install excon docker-api")
+  ssh("gem install excon docker-api sinatra ansi-to-html")
   ssh("/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/stdlib")
   ssh("/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/apt")
   ssh("/opt/puppetlabs/puppet/bin/puppet module install stahnma/epel")
