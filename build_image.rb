@@ -46,8 +46,11 @@ Options
   Do not create a Docker image for Puppet Enterprise in a low-memory 
   environment
 
+--no-r10k
+  Do not bootstrap R10K from https://github.com/GeoffWilliams/r10k-control
+
 --r10k-control GIT_URL
-  Bootstrap r10k using supplied URL or default to 
+  Supply an alternate GIT_URL to bootstrap r10k from.  Defautls to 
   https://github.com/GeoffWilliams/r10k-control.  Only supports R10K
   control repositories forked from the above URL and implementing a 
   bootstrap.sh install script
@@ -77,7 +80,8 @@ def parse_command_line()
     [ '--root-passwd',    GetoptLong::REQUIRED_ARGUMENT ],
     [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT ],
     [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--r10k-control',   GetoptLong::OPTIONAL_ARGUMENT ],
+    [ '--no-r10k',        GetoptLong::NO_ARGUMENT ],
+    [ '--r10k-control',   GetoptLong::REQUIRED_ARGUMENT ],
     [ '--no-regular',     GetoptLong::NO_ARGUMENT ],
     [ '--no-lowmem',      GetoptLong::NO_ARGUMENT ],
     [ '--no-dockerbuild', GetoptLong::NO_ARGUMENT ],
@@ -90,6 +94,8 @@ def parse_command_line()
   @dockerbuild    = true
   @regular        = true
   @global_mod_dir = "/etc/puppetlabs/code/modules"
+  @r10k_control   = true
+  @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
 
   opts.each do |opt,arg|
     case opt
@@ -107,13 +113,10 @@ def parse_command_line()
       @tag_version = arg
     when '--no-dockerbuild'
       @dockerbuild = false
+    when '--no-r10k'
+      @r10k_control = false
     when '--r10k-control'
-      @r10k_control = true
-      if arg.nil? or arg.empty? then
-        @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
-      else
-        @r10k_control_url = arg
-      end
+      @r10k_control_url = arg
     when '--no-cleanup'
       @cleanup = false
     when '--no-regular'
@@ -212,7 +215,7 @@ def setup_dockerbuild
   end
   Dir.chdir(build_dir)
   scp("./#{docker_mod}", "#{@global_mod_dir}/docker", recursive: true)
-  scp("./#{dockerbuild}/puppet-dockerbuild.rb", "/usr/local/bin")
+  scp("./#{dockerbuild}", "/opt", recursive:true)
   
   # install gems and modules needed for script
   ssh("yum install -y ruby-devel e2fsprogs xfsprogs" )
@@ -224,7 +227,8 @@ def setup_dockerbuild
   # install docker
   ssh("/opt/puppetlabs/puppet/bin/puppet apply -e 'include docker'")
 
-
+  # dockerbuild systemd unit
+  ssh("cp /opt/puppet-dockerbuild/dockerbuild.service /etc/systemd/system && systemctl enable /etc/systemd/system/dockerbuild.service")
 
 end
 
