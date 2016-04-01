@@ -114,3 +114,7 @@ q_puppetdb_database_user=pe-puppetdb
 # See http://docs.puppetlabs.com/pe/3.8/install_upgrade_migration_tool.html
 
 q_exit_for_nc_migrate=n
+
+# disable code manager and file sync - they break dockerbuild
+q_puppetmaster_code_manager_auto_configure=n
+q_puppetmaster_file_sync_service_enabled=n

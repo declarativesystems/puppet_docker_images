@@ -329,6 +329,9 @@ def build_image(lowmem, dockerbuild)
     ")
   end
 
+  # run puppet - to generate a node in the console
+  ssh("puppet agent -t")
+
   if dockerbuild then
     setup_dockerbuild
   end
