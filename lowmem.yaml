@@ -5,8 +5,6 @@ puppet_enterprise::profile::amq::broker::heap_mb: '96'
 puppet_enterprise::profile::master::java_args:
   Xmx: '192m'
   Xms: '32m'
-  'XX:MaxPermSize': '=96m'
-  'XX:PermSize': '=96m'
 puppet_enterprise::profile::puppetdb::java_args:
   Xmx: '96m'
   Xms: '32m'

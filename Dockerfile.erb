@@ -45,9 +45,9 @@ RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://s3
   cd /root/ && tar zxvf puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz && \
   rm puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz
 
-# fix locale and paths
-RUN echo 'export LC_ALL="en_US.UTF-8"' >> ~/.bashrc && \
-  echo 'export PATH=/opt/puppetlabs/puppet/bin/:${PATH}' >> ~/.bashrc
+# fix locale and paths globally
+RUN echo 'export LC_ALL="en_US.UTF-8"' >> /etc/profile.d/zz_docker_puppet.sh && \
+  echo 'export PATH=/opt/puppetlabs/puppet/bin/:${PATH}' >> /etc/profile.d/zz_docker_puppet.sh
 
 
 # ssh (there will be no daemon here after installation though)

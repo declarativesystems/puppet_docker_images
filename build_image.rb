@@ -299,37 +299,72 @@ def build_image(lowmem, dockerbuild)
   puts "uploading answers file"
   answer_file = answer_template
   scp(answer_file.path, "/root/answers.txt")
+  scp("classify_filesync_off.rb", "/usr/local/bin/")
   puts "answers file uploaded"
   answer_file.unlink
 
   # Enable low memory (and low performance) by uploading a YAML file with some
-  # puppet hiera settings 
+  # puppet hiera settings.  We do this before installing puppet so that the
+  # settings are in effect 100% of the time
   if lowmem then
-    hieradir = "/etc/puppetlabs/code/environments/production/hieradata"
-    puts "uploading low memory hiera defaults"
-    ssh("mkdir -p #{hieradir}")
-    scp("./lowmem.yaml", "#{hieradir}/common.yaml")
+    dest_files = ["/etc/puppetlabs/code/environments/production/hieradata/common.yaml"]
+    if @r10k_control then
+      # copy an extra version of the file as our initial one will be clobbered
+      # by r10k if its in use
+      dest_files.push("/etc/puppetlabs/code/system.yaml")
+    end
+    
+    for dest_file in dest_files
+      puts "uploading low memory hiera defaults to #{dest_file}"
+      ssh("mkdir -p #{File.dirname(dest_file)}")
+      scp("./lowmem.yaml", dest_file)
+    end
   end
 
 
-  # install puppet, then remove ssh
+  # install puppet, deactivate filesync via NC API (its the only way)
+  # and then run puppet
   ssh("
     cd /root/#{@pe_media} && \
     ./puppet-enterprise-installer -a /root/answers.txt && \
     mkdir -p #{@global_mod_dir} && \
     rm /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
-       /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub"
-  )
+       /etc/ssh/ssh_host_dsa_key /etc/ssh/ssh_host_dsa_key.pub
+    gem install puppetclassify && \
+    chmod +x /usr/local/bin/classify_filesync_off.rb && \
+    /usr/local/bin/classify_filesync_off.rb && \
+    puppet agent -t
+  ")
 
   if @r10k_control then
+    # install a custom fact to setup this machine as a master, then bootstrap r10k
     ssh("
+      mkdir -p /etc/puppetlabs/facter/facts.d/
+      echo 'role=role::puppet::master' > /etc/puppetlabs/facter/facts.d/role.txt
       git clone #{@r10k_control_url} && \
       cd r10k-control && \
       ./bootstrap.sh
     ")
+
+    # Nasty hack - once we classify with the master with role::puppet::master
+    # and run the puppet agent, we will be running puppet before we have
+    # recreated the hierarchy so we need to ensure our dockerbuild settings
+    # are in place AND the r10k_control defaults!  Append them to common.yaml
+    # temporarily.  Once the hierarchy is configured, the system will read
+    # system.yaml by default.  We have to use tail instead of cat because if
+    # we dont, we get the yaml file separator and everything breaks
+    if lowmem
+      ssh("tail -n+2 /etc/puppetlabs/code/system.yaml >> \
+          /etc/puppetlabs/code/environments/production/hieradata/common.yaml")
+    end
+  
+    # after our initial puppet run, we can put run r10k to deploy again to get
+    # rid of our files dropped by the nasty hack above :(
+    ssh("puppet agent -t && r10k deploy environment -pv")
   end
 
-  # run puppet - to generate a node in the console
+  # run puppet - to generate a node in the console/prove it still works after
+  # the installation
   ssh("puppet agent -t")
 
   if dockerbuild then

@@ -117,4 +117,6 @@ q_exit_for_nc_migrate=n
 
 # disable code manager and file sync - they break dockerbuild
 q_puppetmaster_code_manager_auto_configure=n
-q_puppetmaster_file_sync_service_enabled=n
+
+# doesn't work (https://docs.puppetlabs.com/pe/latest/release_notes_known_issues_install.html#do-not-use-n-for-file-sync-question-in-answer-file-to-disable-file-sync-on-install)
+q_puppetmaster_file_sync_service_enabled=y
