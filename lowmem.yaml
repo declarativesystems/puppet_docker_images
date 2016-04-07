@@ -3,7 +3,7 @@
 puppet_enterprise::profile::puppetdb::listen_address: '0.0.0.0'
 puppet_enterprise::profile::amq::broker::heap_mb: '96'
 puppet_enterprise::profile::master::java_args:
-  Xmx: '192m'
+  Xmx: '300m'
   Xms: '32m'
 puppet_enterprise::profile::puppetdb::java_args:
   Xmx: '96m'
