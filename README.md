@@ -103,7 +103,7 @@ settings to be aware of:
 * The `root` password is `root`
 * The console `admin` password is `aaaaaaaa`, this can be changed through the
   GUI
-* Other puppet passwords are generated randomly on a per-image basis
+* Other puppet passwords are fixed, weak passwords 
 * You should build and host your own image if you would like to choose a more
   suitable hostname and ensure that your passwords are unique
 
@@ -116,11 +116,10 @@ throwing them in the too-hard basket- at least for the moment.
   running on a mac or windows, you will need to ensure your docker-machine
   (formerly boot2docker) has lots of memory available or your container might
   run out
-
-# Todo
-* Figure out how to reduce Puppet memory usage and publish a new image.  This
-  is needed to allow this code to work nicely with CI systems such as
-  (travis-ci)[http://travis-ci.org/]
+* Sometimes builds randomly fail during the agent downloading section of the
+  build.  This seems to be due to network congestion - there are just under
+  1GB of installers that need to be downloaded so it can take a while.  This
+  is usually fixed by turning off netflix and running the build again
 
 # What is the status of this code
 This code is experimental and is in no way supported by Puppet Labs.  Its
