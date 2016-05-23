@@ -323,7 +323,7 @@ end
 def cleanup(finalname)
   # kill running container
   if @cleanup
-    @logger.info("deleting #{finalname})
+    @logger.info("deleting #{finalname}")
     system("docker rm -f #{finalname}") or
       abort("failed to kill running docker containerker image")
   end
