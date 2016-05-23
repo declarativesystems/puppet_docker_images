@@ -171,6 +171,11 @@ def ssh(container, command)
         ignore_error = true
       end
     end
+    if command =~ /puppet agent/ and out[2] == 2
+      @logger.info("Exit status 2 (changes) from puppet agent is OK - proceeding")
+      ignore_error = true
+    end
+    
     if not ignore_error
       @logger.error("intercepted error running command, killing build")
       abort("ERROR running command, aborting build: " + out[1].to_s)
@@ -367,7 +372,8 @@ def build_main_image()
     # install a custom fact to setup this machine as a master, then bootstrap r10k
     ssh(
       container,
-      "mkdir -p /etc/puppetlabs/facter/facts.d/
+      "cd /root && 
+      mkdir -p /etc/puppetlabs/facter/facts.d/
       echo 'role=role::puppet::master' > /etc/puppetlabs/facter/facts.d/role.txt
       git clone #{@r10k_control_url} && \
       cd r10k-control && \
@@ -398,42 +404,31 @@ def lowmem_dockerbuild()
   docker_hub=docker_hub_name(finalname)
 
   # get the name of the 'normal' puppet image
-  base_image = ::Docker::Container.get(::Docker::Container.get(false, false))
+  base_image = ::Docker::Image.get(docker_hub_name(image_name(false, false)))
 
   container = make_container(base_image, finalname)
 
   # Enable low memory (and low performance) by uploading a YAML file with some
   # puppet hiera settings.  We do this AFTER we have installed puppet into a 
   # container so that we don't have to rebuild it
-  dest_files = ["/etc/puppetlabs/code/environments/production/hieradata/common.yaml"]
   if @r10k_control then
-    @logger.debug("yaml adjustment...")
-    # copy an extra version of the file as our initial one will be clobbered
-    # by r10k if its in use
-    dest_files.push("/etc/puppetlabs/code/system.yaml")
+    @logger.debug("Copying extra YAML for r10K environments")
+    dest_file = "/etc/puppetlabs/code/system.yaml"
+  else
+    # without R10K, just copy to the default location
+    @logger.debug("Copying extra YAML for vanila environments")
+    dest_file = "/etc/puppetlabs/code/environments/production/hieradata/common.yaml"
   end
+  @logger.debug("uploading low memory hiera defaults to #{dest_file}")
+  ssh(container, "mkdir -p #{File.dirname(dest_file)}")
+  scp(container, "./lowmem.yaml", dest_file)
 
-  for dest_file in dest_files
-    @logger.debug("uploading low memory hiera defaults to #{dest_file}")
-    ssh(container, "mkdir -p #{File.dirname(dest_file)}")
-    scp(container, "./lowmem.yaml", dest_file)
-  end
-
-  if @r10k_control
-    @logger.debug("setup defaults in common.yaml")
-    # Nasty hack - once we classify with the master with role::puppet::master
-    # and run the puppet agent, we will be running puppet before we have
-    # recreated the hierarchy so we need to ensure our dockerbuild settings
-    # are in place AND the r10k_control defaults!  Append them to common.yaml
-    # temporarily.  Once the hierarchy is configured, the system will read
-    # system.yaml by default.  We have to use tail instead of cat because if
-    # we dont, we get the yaml file separator and everything breaks
-    ssh(container, "tail -n+2 /etc/puppetlabs/code/system.yaml >> \
-          /etc/puppetlabs/code/environments/production/hieradata/common.yaml")
-  end
-  
-
+  # install dockerbuild and goodies
   setup_dockerbuild(container)
+
+  # make the yaml/hiera settings take effect
+  @logger.debug("running puppet...")
+  ssh(container, "puppet agent -t")
 
   @logger.info("DONE! committing container...")
   system("docker commit #{finalname} #{docker_hub}") or abort("failed to commit docker image")

@@ -1,4 +1,4 @@
- source:  https://github.com/puppetlabs/pltraining-bootstrap/blob/master/files/defaults.yaml
+# source:  https://github.com/puppetlabs/pltraining-bootstrap/blob/master/files/defaults.yaml
 ---
 #PE3.7
 puppet_enterprise::profile::puppetdb::listen_address: '0.0.0.0'
