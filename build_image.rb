@@ -18,7 +18,6 @@ build_image --pe-version VERSION \
             --tag-version VERSION \
             [--hostname puppet.megacorp.com] \
             [--no-regular] \
-            [--no-lowmem] \
             [--r10k-control GIT_URL] \
             [--no-dockerbuild] \
             [--no-cleanup]
@@ -39,15 +38,15 @@ Options
 --tag-version VERSION
   Numeric version number to tag the release with, eg 0
 
+--base-tag-version VERSION
+  Numveric version number to *base* the dockerbuild+lowmem image on (eg if
+  you want to build 2016.1.2-3 dockerbuild+lowmem on top of 2016.1.2-2 master)
+
 --hostname
   Hostname to install Puppet Enterprise for
 
 --no-regular
   Do not create a docker image for a regualr Puppet Enterprise server
-
---no-lowmem
-  Do not create a Docker image for Puppet Enterprise in a low-memory 
-  environment
 
 --no-r10k
   Do not bootstrap R10K from https://github.com/GeoffWilliams/r10k-control
@@ -59,7 +58,7 @@ Options
   bootstrap.sh install script
 
 --no-dockerbuild
-  Do not produce a dockerbuild image.
+  Do not produce a dockerbuild+lowmem image.
 
 --no-cleanup
   Do not remove the Docker container after build
@@ -79,18 +78,18 @@ end
 
 def parse_command_line()
   opts = GetoptLong.new(
-    [ '--hostname',       GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--root-passwd',    GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--pe-version',     GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--tag-version',    GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--no-r10k',        GetoptLong::NO_ARGUMENT ],
-    [ '--r10k-control',   GetoptLong::REQUIRED_ARGUMENT ],
-    [ '--no-regular',     GetoptLong::NO_ARGUMENT ],
-    [ '--no-lowmem',      GetoptLong::NO_ARGUMENT ],
-    [ '--no-dockerbuild', GetoptLong::NO_ARGUMENT ],
-    [ '--no-cleanup',     GetoptLong::NO_ARGUMENT ],
-    [ '--help',           GetoptLong::NO_ARGUMENT ],
-    [ '--debug',          GetoptLong::NO_ARGUMENT ],
+    [ '--hostname',         GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--root-passwd',      GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--pe-version',       GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--tag-version',      GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--base-tag-version', GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--no-r10k',          GetoptLong::NO_ARGUMENT ],
+    [ '--r10k-control',     GetoptLong::REQUIRED_ARGUMENT ],
+    [ '--no-regular',       GetoptLong::NO_ARGUMENT ],
+    [ '--no-dockerbuild',   GetoptLong::NO_ARGUMENT ],
+    [ '--no-cleanup',       GetoptLong::NO_ARGUMENT ],
+    [ '--help',             GetoptLong::NO_ARGUMENT ],
+    [ '--debug',            GetoptLong::NO_ARGUMENT ],
   )
   @cleanup        = true
   @lowmem         = true
@@ -106,14 +105,14 @@ def parse_command_line()
       show_usage()
     when '--hostname'
       @hostname = arg
-    when '--no-lowmem'
-      @lowmem = false
     when '--root-passwd'
       @root_passwd = arg
     when '--pe-version'
       @pe_version = arg
     when '--tag-version'
       @tag_version = arg
+    when '--base-tag-version'
+      @base_tag_version = arg
     when '--no-dockerbuild'
       @dockerbuild = false
     when '--no-r10k'
@@ -321,8 +320,8 @@ def image_from_dockerfile()
   base_image  
 end
 
-def docker_hub_name(finalname)
-  "geoffwilliams/#{finalname}:#{@pe_version}-#{@tag_version}"
+def docker_hub_name(finalname, tag_version=@tag_version)
+  "geoffwilliams/#{finalname}:#{@pe_version}-#{tag_version}"
 end
 
 def cleanup(finalname)
@@ -403,8 +402,15 @@ def lowmem_dockerbuild()
   finalname = image_name(true, true)
   docker_hub=docker_hub_name(finalname)
 
-  # get the name of the 'normal' puppet image
-  base_image = ::Docker::Image.get(docker_hub_name(image_name(false, false)))
+  # get the name of the 'normal' puppet image, allowing base_tag_version to
+  # override tag version (for disjoint releases between master and 
+  # dockerbuild+lowmem images
+  base_image = ::Docker::Image.get(
+    docker_hub_name(
+      image_name(false, false), 
+      @base_tag_version||@tag_version
+    )
+  )
 
   container = make_container(base_image, finalname)
 
@@ -422,6 +428,11 @@ def lowmem_dockerbuild()
   @logger.debug("uploading low memory hiera defaults to #{dest_file}")
   ssh(container, "mkdir -p #{File.dirname(dest_file)}")
   scp(container, "./lowmem.yaml", dest_file)
+
+
+  # copy NC API script to turn off node/report TTLs and run it
+  scp(container, "classify_ttl_forever.rb", "/usr/local/classify_ttl_forever.rb")
+  ssh(container, "chmod +x /usr/local/classify_ttl_forever.rb && /usr/local/classify_ttl_forever.rb")
 
   # install dockerbuild and goodies
   setup_dockerbuild(container)
