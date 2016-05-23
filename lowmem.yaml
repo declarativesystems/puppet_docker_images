@@ -1,4 +1,4 @@
-# source:  https://github.com/puppetlabs/pltraining-bootstrap/blob/master/files/defaults.yaml
+ source:  https://github.com/puppetlabs/pltraining-bootstrap/blob/master/files/defaults.yaml
 ---
 #PE3.7
 puppet_enterprise::profile::puppetdb::listen_address: '0.0.0.0'
@@ -23,4 +23,10 @@ puppet_enterprise::profile::console::delayed_job_workers: 1
 #shared_buffers takes affect during install but is not managed after
 puppet_enterprise::profile::database::shared_buffers: '4MB' 
 puppet_enterprise::profile::orchestrator::pcp_timeout: 10 
+
+
+# turn off puppetdb expiry so nodes are never purged from console
+puppet_enterprise::profile::puppetdb:node_purge_ttl: '0s'
+puppet_enterprise::profile::puppetdb:node_ttl: '0s'
+puppet_enterprise::profile::puppetdb:report_ttl: '0s'
 
