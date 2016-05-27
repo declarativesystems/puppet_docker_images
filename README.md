@@ -48,8 +48,7 @@ docker run -d -P --privileged --name CONTAINER_NAME \
 ```
 Start a Docker container with the hostname it was installed for.  Note, data
 will be stored inside the container.  This is good for testing but could lead
-to dataloss in more complex scenarios - see #Advanced for more info.  Also note
-that there is no SSH server available unless you have added one yourself.
+to dataloss in more complex scenarios - see #Advanced for more info.
 
 ## Advanced
 ```shell
@@ -84,22 +83,19 @@ docker push IMAGE_NAME
 # How does the build work?
 1.  A customised Dockerfile will be created by munging the requested Puppet
     Enterprise version number into the Dockerfile ERB template
-2.  A centos image will be created and configured to run with systemd and SSH
+2.  A centos image will be created and configured to run with systemd
 3.  The Puppet Enterprise tarball will be downloaded into the image
 4.  A container will be created from the image in privileged mode (needed for
     systemd)
-5.  The script will SSH into the container, run the puppet enterprise installer
-    and then remove the SSH keys.  The Puppet Enterprise installer will be run
-     using the `all-in-one.answers.txt` file with the hostname set to whatever
-    the script was called with (defaults to `pe-puppet.localdomain`)
+5.  The script will docker exec into the container and run the puppet enterprise
+    installer using the `all-in-one.answers.txt` file with the hostname set to 
+    whatever the script was called with (defaults to `pe-puppet.localdomain`)
 6.  The image will be committed and tagged with the name in the bash script
 
 # Security
 This image is primarily targetted at throw-away test environments so security
 isn't a huge concern at the moment.  With that said, there are some security
 settings to be aware of:
-* SSH is disabled in the final image by removing the SSH daemon's 
-  public/private keypairs
 * The `root` password is `root`
 * The console `admin` password is `aaaaaaaa`, this can be changed through the
   GUI
