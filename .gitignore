@@ -1,2 +1,4 @@
+puppet-enterprise-*.gz
+Dockerfile.out
 build
 Gemfile.lock

@@ -36,10 +36,8 @@ RUN ln -s /opt/puppetlabs/puppet/bin/openssl /usr/bin/openssl
 RUN ln -s /opt/puppetlabs/server/bin/keytool /usr/bin/keytool
 
 
-# download and unpack PE
-RUN wget -O /root/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz "https://s3.amazonaws.com/pe-builds/released/${pe_version}/puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz" && \
-  cd /root/ && tar zxvf puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz && \
-  rm puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz
+# copy and unpack PE - ADD command unpacks tarballs for us, how mad is that!
+ADD ./puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz /root
 
 # fix locale, paths and terminal globally
 RUN echo 'export LC_ALL="en_US.UTF-8"' >> /etc/profile.d/zz_docker_puppet.sh && \

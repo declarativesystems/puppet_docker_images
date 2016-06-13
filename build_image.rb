@@ -33,7 +33,9 @@ By default, the following builds are created:
 Options
 -------
 --pe-version VERSION
-  Version of Puppet Enterprise to download and install, eg '2015.2.1'
+  Version of Puppet Enterprise you are installing, eg '2015.2.1'
+  Does not download the image, you must have the downloaded 
+  tarball present in the directory your running this script from
 
 --tag-version VERSION
   Numeric version number to tag the release with, eg 0
@@ -95,7 +97,9 @@ def parse_command_line()
   @lowmem         = true
   @dockerbuild    = true
   @regular        = true
+  @code_dir       = "/etc/puppetlabs/code/modules"
   @global_mod_dir = "/etc/puppetlabs/code/modules"
+  @prod_hiera_dir = "/etc/puppetlabs/code/environments/production/hieradata"
   @r10k_control   = true
   @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
 
@@ -307,14 +311,24 @@ end
 # make an image from a dockerfile template and return it
 def image_from_dockerfile()
   @logger.debug("creating dockerfile from template...")
+  temp_dockerfile = "Dockerfile.out"
+
   dockerfile_erb = File.read("Dockerfile.erb")
   dockerfile = ERB.new(dockerfile_erb, nil, '-').result(binding)
 
+  # must write out the dockerfile to a tempfile to obtain build context
+  # then we need to manually clean up
+  File.write(temp_dockerfile, dockerfile)
+
   @logger.debug("building image from dockerfile...")
-  base_image = Docker::Image.build(dockerfile, { :rm => true }) { |chunk|
+  base_image = Docker::Image.build_from_dir(".", { 
+    'dockerfile' => temp_dockerfile,
+    :rm => true 
+  }) { |chunk|
     @logger.debug(chunk)
   }
   @logger.debug("...done!")
+  File.delete(temp_dockerfile)
 
   # return
   base_image  
@@ -340,8 +354,16 @@ def build_main_image()
   pe_media ="puppet-enterprise-#{@pe_version}-el-7-x86_64"
   docker_hub=docker_hub_name(finalname)
 
-  base_image = image_from_dockerfile()
-  container = make_container(base_image, finalname)
+  begin
+    base_image = image_from_dockerfile()
+    container = make_container(base_image, finalname)
+  rescue Excon::Errors::SocketError => e
+    puts("Errno::ENOENT -- if your on a mac do you need to eval $(docker-machine env) first?") 
+    raise
+  rescue => e
+    puts("Error preparing image from Dockerfile, see next error")
+    raise
+  end
 
   # wait for image to boot, then SCP the answers file
   sleep 5
@@ -419,11 +441,11 @@ def lowmem_dockerbuild()
   # container so that we don't have to rebuild it
   if @r10k_control then
     @logger.debug("Copying extra YAML for r10K environments")
-    dest_file = "/etc/puppetlabs/code/system.yaml"
+    dest_file = "#{@code_dir}/system.yaml"
   else
     # without R10K, just copy to the default location
     @logger.debug("Copying extra YAML for vanila environments")
-    dest_file = "/etc/puppetlabs/code/environments/production/hieradata/common.yaml"
+    dest_file = "#{@prod_hiera_dir}/common.yaml"
   end
   @logger.debug("uploading low memory hiera defaults to #{dest_file}")
   ssh(container, "mkdir -p #{File.dirname(dest_file)}")
