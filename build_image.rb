@@ -360,6 +360,9 @@ def build_main_image()
   rescue Excon::Errors::SocketError => e
     puts("Errno::ENOENT -- if your on a mac do you need to eval $(docker-machine env) first?") 
     raise
+  rescue Docker::Error::UnexpectedResponseError => e
+    puts("Did you copy the PE master installation tarball for RHEL7 to the current directory before running this script?")
+    raise
   rescue => e
     puts("Error preparing image from Dockerfile, see next error")
     raise
