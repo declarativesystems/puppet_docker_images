@@ -20,7 +20,8 @@ build_image --pe-version VERSION \
             [--no-regular] \
             [--r10k-control GIT_URL] \
             [--no-dockerbuild] \
-            [--no-cleanup]
+            [--no-cleanup] \
+            [--old-installer]
 Build a suit of docker images with Puppet Enterprise installed
 and optionally configure a specific hostname.
 
@@ -65,6 +66,9 @@ Options
 --no-cleanup
   Do not remove the Docker container after build
 
+--old-installer
+  Use the old PE installer (answers file) instead of the 'new' meep one
+
 Examples
 --------
 build_image.rb --pe-version 2015.2.1 --tag-version 0
@@ -90,18 +94,20 @@ def parse_command_line()
     [ '--no-regular',       GetoptLong::NO_ARGUMENT ],
     [ '--no-dockerbuild',   GetoptLong::NO_ARGUMENT ],
     [ '--no-cleanup',       GetoptLong::NO_ARGUMENT ],
+    [ '--old-installer',    GetoptLong::NO_ARGUMENT ],
     [ '--help',             GetoptLong::NO_ARGUMENT ],
     [ '--debug',            GetoptLong::NO_ARGUMENT ],
   )
-  @cleanup        = true
-  @lowmem         = true
-  @dockerbuild    = true
-  @regular        = true
-  @code_dir       = "/etc/puppetlabs/code/modules"
-  @global_mod_dir = "/etc/puppetlabs/code/modules"
-  @prod_hiera_dir = "/etc/puppetlabs/code/environments/production/hieradata"
-  @r10k_control   = true
+  @cleanup          = true
+  @lowmem           = true
+  @dockerbuild      = true
+  @regular          = true
+  @code_dir         = "/etc/puppetlabs/code/modules"
+  @global_mod_dir   = "/etc/puppetlabs/code/modules"
+  @prod_hiera_dir   = "/etc/puppetlabs/code/environments/production/hieradata"
+  @r10k_control     = true
   @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
+  @old_installer    = false
 
   opts.each do |opt,arg|
     case opt
@@ -127,6 +133,8 @@ def parse_command_line()
       @cleanup = false
     when '--no-regular'
       @regular = false
+    when '--old-installer'
+      @old_installer = true
     end
   end
 
@@ -368,14 +376,24 @@ def build_main_image()
     raise
   end
 
-  # wait for image to boot, then SCP the answers file
+  # wait for image to boot, then copy the answers file
   sleep 5
-  @logger.debug("uploading answers file and scripts")
-  answer_file = answer_template
-  scp(container, answer_file.path, "/root/answers.txt")
+  if @old_installer
+    @logger.debug("uploading answers file")
+    answer_file = answer_template
+    scp(container, answer_file.path, "/root/answers.txt")
+    puts "answers file uploaded"
+    answer_file.unlink
+    pe_install_cmd = "./puppet-enterprise-installer -a /root/answers.txt"
+  else
+    @logger.debug("uploading meep config file")
+    scp(container, "answers/pe.conf", "/root/pe.conf")
+    puts "meep config file uploaded"
+    pe_install_cmd = "./puppet-enterprise-installer -c /root/pe.conf"
+  end
+
+  @logger.debug("uploading classifier script")
   scp(container, "classify_filesync_off.rb", "/usr/local/bin/")
-  puts "answers file uploaded"
-  answer_file.unlink
 
   # install puppet, deactivate filesync via NC API (its the only way)
   # and then run puppet
@@ -383,7 +401,7 @@ def build_main_image()
   ssh(
     container,
     "cd /root/#{pe_media} && \
-    ./puppet-enterprise-installer -a /root/answers.txt && \
+    #{pe_install_cmd} && \
     mkdir -p #{@global_mod_dir} && \
     gem install puppetclassify && \
     chmod +x /usr/local/bin/classify_filesync_off.rb && \
