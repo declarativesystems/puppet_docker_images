@@ -102,9 +102,9 @@ def parse_command_line()
   @lowmem           = true
   @dockerbuild      = true
   @regular          = true
-  @code_dir         = "/etc/puppetlabs/code/modules"
-  @global_mod_dir   = "/etc/puppetlabs/code/modules"
-  @prod_hiera_dir   = "/etc/puppetlabs/code/environments/production/hieradata"
+  @code_dir         = "/etc/puppetlabs/code"
+  @global_mod_dir   = "#{@code_dir}/modules"
+  @prod_hiera_dir   = "#{@code_dir}/environments/production/hieradata"
   @r10k_control     = true
   @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
   @old_installer    = false
