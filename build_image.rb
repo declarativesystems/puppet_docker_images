@@ -412,11 +412,14 @@ def build_main_image()
   if @r10k_control then
    @logger.debug("installing r10k...")
     # install a custom fact to setup this machine as a master, then bootstrap r10k
+    csr_dir = '/etc/puppetlabs/puppet'
+    csr_file = "#{csr_dir}/csr_attributes.yaml"
     ssh(
       container,
       "cd /root && 
-      mkdir -p /etc/puppetlabs/facter/facts.d/
-      echo 'role=role::puppet::master' > /etc/puppetlabs/facter/facts.d/role.txt
+      mkdir -p #{csr_dir}
+      echo 'extension_requests: 'role=role::puppet::master' > #{csr_file}
+      echo '    pp_role: 'r_role::puppet::master' >> #{csr_file}
       git clone #{@r10k_control_url} && \
       cd r10k-control && \
       ./bootstrap.sh
