@@ -42,8 +42,8 @@ Options
   Numeric version number to tag the release with, eg 0
 
 --base-tag-version VERSION
-  Numveric version number to *base* the dockerbuild+lowmem image on (eg if
-  you want to build 2016.1.2-3 dockerbuild+lowmem on top of 2016.1.2-2 master)
+  Numveric version number to *base* the lowmem image on (eg if
+  you want to build 2016.1.2-3 lowmem on top of 2016.1.2-2 master)
 
 --hostname
   Hostname to install Puppet Enterprise for
@@ -59,9 +59,6 @@ Options
   https://github.com/GeoffWilliams/r10k-control.  Only supports R10K
   control repositories forked from the above URL and implementing a 
   bootstrap.sh install script
-
---no-dockerbuild
-  Do not produce a dockerbuild+lowmem image.
 
 --no-cleanup
   Do not remove the Docker container after build
@@ -92,7 +89,6 @@ def parse_command_line()
     [ '--no-r10k',          GetoptLong::NO_ARGUMENT ],
     [ '--r10k-control',     GetoptLong::REQUIRED_ARGUMENT ],
     [ '--no-regular',       GetoptLong::NO_ARGUMENT ],
-    [ '--no-dockerbuild',   GetoptLong::NO_ARGUMENT ],
     [ '--no-cleanup',       GetoptLong::NO_ARGUMENT ],
     [ '--old-installer',    GetoptLong::NO_ARGUMENT ],
     [ '--help',             GetoptLong::NO_ARGUMENT ],
@@ -100,7 +96,6 @@ def parse_command_line()
   )
   @cleanup          = true
   @lowmem           = true
-  @dockerbuild      = true
   @regular          = true
   @code_dir         = "/etc/puppetlabs/code"
   @global_mod_dir   = "#{@code_dir}/modules"
@@ -123,8 +118,6 @@ def parse_command_line()
       @tag_version = arg
     when '--base-tag-version'
       @base_tag_version = arg
-    when '--no-dockerbuild'
-      @dockerbuild = false
     when '--no-r10k'
       @r10k_control = false
     when '--r10k-control'
@@ -211,52 +204,7 @@ def answer_template
   return file
 end
 
-def setup_dockerbuild(container)
-  # download script and module to './build' directory, then SCP to host
-  # if not already there.  If files already exist, they are used directly.
-  # This is to allow in-place testing of local files
-  build_dir = "./build"
-  docker_mod = "garethr-docker"
-  dockerbuild = "puppet-dockerbuild"
-  docker_mod_dir = "#{build_dir}/#{docker_mod}"
-  dockerbuild_dir = "#{build_dir}/#{dockerbuild}"
-  docker_mod_gh = "https://github.com/garethr/#{docker_mod}"
-  dockerbuild_gh = "https://github.com/GeoffWilliams/#{dockerbuild}"
-  git_clone = "git clone"
-  FileUtils.mkdir_p(build_dir)
-  if ! Dir.exists?(docker_mod_dir) then
-    system("#{git_clone} #{docker_mod_gh} #{docker_mod_dir}")
-  end
-  if ! Dir.exists?(dockerbuild_dir) then
-    system("#{git_clone} #{dockerbuild_gh} #{dockerbuild_dir}")
-  end
-  Dir.chdir(build_dir)
-    
-  @logger.debug("uploading dockerbuild files...")
-  scp(container, "./#{docker_mod}", "#{@global_mod_dir}/docker")
-  scp(container, "./#{dockerbuild}", "/opt")
-  
-  # install gems and modules needed for script
-    @logger.debug("installing dockerbuild requirements...")  
-  ssh(container, "yum install -y ruby-devel e2fsprogs xfsprogs" )
-  ssh(container, "gem install excon docker-api sinatra ansi-to-html")
-  ssh(container, "/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/stdlib")
-  ssh(container, "/opt/puppetlabs/puppet/bin/puppet module install puppetlabs/apt")
-  ssh(container, "/opt/puppetlabs/puppet/bin/puppet module install stahnma/epel")
-
-  # install docker
-  @logger.debug("uploading docker...")
-  ssh(container, "/opt/puppetlabs/puppet/bin/puppet apply -e 'include docker'")
-
-  # dockerbuild systemd unit
-  @logger.debug("setting up systemd for docker...")
-  ssh(container, "cp /opt/puppet-dockerbuild/dockerbuild.service /etc/systemd/system && systemctl enable /etc/systemd/system/dockerbuild.service")
-
-  @logger.info("..DONE! setup of dockerbuild is complete")
-end
-
-
-def image_name(lowmem, dockerbuild)
+def image_name(lowmem)
   if @hostname == @default_hostname then
     img_type = "public"
   else
@@ -269,10 +217,6 @@ def image_name(lowmem, dockerbuild)
 
   if @r10k_control then
     img_type += "_r10k"
-  end
-
-  if dockerbuild then
-    img_type += "_dockerbuild"
   end
 
   @basename = "pe_master"
@@ -358,16 +302,13 @@ end
 
 def build_main_image()
   # Use user-supplied hostname if set
-  finalname = image_name(false, false)
+  finalname = image_name(false)
   pe_media ="puppet-enterprise-#{@pe_version}-el-7-x86_64"
   docker_hub=docker_hub_name(finalname)
 
   begin
     base_image = image_from_dockerfile()
     container = make_container(base_image, finalname)
-  rescue Excon::Errors::SocketError => e
-    puts("Errno::ENOENT -- if your on a mac do you need to eval $(docker-machine env) first?") 
-    raise
   rescue Docker::Error::UnexpectedResponseError => e
     puts("Did you copy the PE master installation tarball for RHEL7 to the current directory before running this script?")
     raise
@@ -405,7 +346,9 @@ def build_main_image()
       container,
       " mkdir -p #{csr_dir} && \
       echo 'extension_requests:' > #{csr_file} && \
-      echo '    pp_role: r_role::puppet::master' >> #{csr_file}"
+      echo '    pp_role: r_role::puppet::master' >> #{csr_file} && \
+      mkdir -p #{@code_dir} && \
+      echo 'r_profile::puppet::master::git_server: false' > #{@code_dir}/system.yaml"
     )
   end
 
@@ -415,9 +358,12 @@ def build_main_image()
     "cd /root/#{pe_media} && \
     #{pe_install_cmd} && \
     mkdir -p #{@global_mod_dir} && \
-    gem install puppetclassify && \
+    /opt/puppetlabs/puppet/bin/gem install puppetclassify && \
+    /opt/puppetlabs/puppet/bin/gem install pe_rbac && \
+    /opt/puppetlabs/server/bin/puppetserver gem install puppetclassify && \
     chmod +x /usr/local/bin/classify_filesync_off.rb && \
     /usr/local/bin/classify_filesync_off.rb && \
+    systemctl restart pe-puppetserver && \
     puppet agent -t
   ")
 
@@ -451,8 +397,8 @@ def build_main_image()
 end
 
 # lowmem + dockerbuild is done with an existing image to 
-def lowmem_dockerbuild()
-  finalname = image_name(true, true)
+def lowmem()
+  finalname = image_name(true)
   docker_hub=docker_hub_name(finalname)
 
   # get the name of the 'normal' puppet image, allowing base_tag_version to
@@ -460,7 +406,7 @@ def lowmem_dockerbuild()
   # dockerbuild+lowmem images
   base_image = ::Docker::Image.get(
     docker_hub_name(
-      image_name(false, false), 
+      image_name(false), 
       @base_tag_version||@tag_version
     )
   )
@@ -487,9 +433,6 @@ def lowmem_dockerbuild()
   scp(container, "classify_ttl_forever.rb", "/usr/local/classify_ttl_forever.rb")
   ssh(container, "chmod +x /usr/local/classify_ttl_forever.rb && /usr/local/classify_ttl_forever.rb")
 
-  # install dockerbuild and goodies
-  setup_dockerbuild(container)
-
   # make the yaml/hiera settings take effect
   @logger.debug("running puppet...")
   ssh(container, "puppet agent -t")
@@ -514,11 +457,9 @@ def main()
   end
 
   # lowmem + dockerbuild
-  if @dockerbuild then
-    @logger.info("*** BUILDING LOWMEM IMAGE***")
-    lowmem_dockerbuild()
-    @logger.info("*** BUILDING LOWMEM IMAGE***")
-  end
+  @logger.info("*** BUILDING LOWMEM IMAGE***")
+  lowmem()
+  @logger.info("*** DONE BUILDING LOWMEM IMAGE***")
 end
 
 main

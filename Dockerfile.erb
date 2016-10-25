@@ -20,7 +20,8 @@ RUN yum -y swap -- remove systemd-container systemd-container-libs -- install sy
 RUN echo "metadata_expire=never" >> /etc/yum.conf
 
 # essential packages
-RUN yum install -y sudo curl ntpdate which git cronie wget
+RUN yum install -y sudo curl ntpdate which git cronie wget policycoreutils-restorecond
+RUN yum groupinstall -y 'Development Tools'
 
 # firewall off
 # We can't stop systemctl services until after we come back up in priviledged

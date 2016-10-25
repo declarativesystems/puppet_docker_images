@@ -23,3 +23,6 @@ puppet_enterprise::profile::console::delayed_job_workers: 1
 #shared_buffers takes affect during install but is not managed after
 puppet_enterprise::profile::database::shared_buffers: '4MB' 
 puppet_enterprise::profile::orchestrator::pcp_timeout: 10 
+
+# gitserver/code manager off
+r_profile::puppet::master::git_server: false
