@@ -43,6 +43,9 @@ pe_master_group = puppetclassify.groups.get_group(pe_master_group_id)
 # turn filesync off
 pe_master_group["classes"]["puppet_enterprise::profile::master"]["file_sync_enabled"]=false
 
+# code manager off
+pe_master_group["classes"]["puppet_enterprise::profile::master"]["code_manager_auto_configure"]=false
+
 # Build the hash to pass to the API
 group_delta = {
   'id'      => pe_master_group_id,
