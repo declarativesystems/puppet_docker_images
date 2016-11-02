@@ -153,6 +153,10 @@ def parse_command_line()
   end
 end
 
+def puppet_agent_t 
+  return "while [ -f /opt/puppetlabs/puppet/cache/state/agent_catalog_run.lock ]; do  sleep 1; echo .; done ; puppet agent -t"
+end
+
 def scp(container, local_file, remote_file)
   # doesn't seem to be an API call for this, copy() looks to do an upload...
   cmd = "docker cp #{local_file} #{container.id}:/#{remote_file}"
@@ -364,7 +368,7 @@ def build_main_image()
     chmod +x /usr/local/bin/classify_filesync_off.rb && \
     /usr/local/bin/classify_filesync_off.rb && \
     systemctl restart pe-puppetserver && \
-    puppet agent -t
+    #{puppet_agent_t}
   ")
 
   if @r10k_control then
@@ -381,13 +385,13 @@ def build_main_image()
     # after our initial puppet run, we can put run r10k to deploy again to get
     # rid of our files dropped by the nasty hack above :(
     @logger.debug("running puppet and deploying r10k...")
-    ssh(container, "puppet agent -t && r10k deploy environment -pv")
+    ssh(container, "#{puppet_agent_t} && r10k deploy environment -pv")
   end
 
   # run puppet - to generate a node in the console/prove it still works after
   # the installation
   @logger.debug("running puppet...")
-  ssh(container, "puppet agent -t")
+  ssh(container, puppet_agent_t)
 
     
   @logger.info("DONE! committing container...")
@@ -435,7 +439,7 @@ def lowmem()
 
   # make the yaml/hiera settings take effect
   @logger.debug("running puppet...")
-  ssh(container, "puppet agent -t")
+  ssh(container, puppet_agent_t)
 
   @logger.info("DONE! committing container...")
   system("docker commit #{finalname} #{docker_hub}") or abort("failed to commit docker image")
