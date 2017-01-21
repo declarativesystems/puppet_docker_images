@@ -20,7 +20,7 @@ RUN yum -y swap -- remove systemd-container systemd-container-libs -- install sy
 RUN echo "metadata_expire=never" >> /etc/yum.conf
 
 # essential packages
-RUN yum install -y sudo curl ntpdate which git cronie wget policycoreutils policycoreutils-restorecond
+RUN yum install -y sudo curl ntpdate which git cronie wget policycoreutils policycoreutils-restorecond iptables-services iptables
 RUN yum groupinstall -y 'Development Tools'
 
 # firewall off
@@ -28,7 +28,7 @@ RUN yum groupinstall -y 'Development Tools'
 # mode.  Since this is a reboot and we just turned it off, firewalld will now
 # be off we dont need to worry about it
 # RUN systemctl stop firewalld
-RUN systemctl disable firewalld
+# RUN systemctl disable firewalld
 
 # PE2015.3.0 seems to not be able to find openssl in its own path for 
 # some reason - symlink to /usr/bin and then it should be live when it

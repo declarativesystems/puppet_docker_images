@@ -6,6 +6,8 @@ require 'tmpdir'
 require 'tempfile'
 require 'erb'
 require 'docker'
+require 'pe_info/tarball'
+require 'pe_info/system'
 
 STDOUT.sync = true
 @logger = Logger.new(STDOUT)
@@ -337,6 +339,20 @@ def build_main_image()
     pe_install_cmd = "./puppet-enterprise-installer -c /root/pe.conf"
   end
 
+  # upload agent installers if available
+  agent_version = PeInfo::Tarball::agent_version(pe_media + '.tar.gz')
+  Dir.chdir("#{Dir.home}/agent_installers/#{@pe_version}") {
+    Dir.foreach(".") { |f|
+      if f =~ /puppet-agent/
+        @logger.debug("uploading agent installer #{f}")
+        upload_dir = PeInfo::System::agent_installer_upload_path(@pe_version, agent_version, f)
+        # upload to container, ruby API doesn't seem to have native support
+        ssh(container, "mkdir -p #{upload_dir}")
+        scp(container, f, upload_dir)
+      end
+    }
+  }
+
   @logger.debug("uploading classifier script")
   scp(container, "classify_filesync_off.rb", "/usr/local/bin/")
 
@@ -385,7 +401,7 @@ def build_main_image()
     # after our initial puppet run, we can put run r10k to deploy again to get
     # rid of our files dropped by the nasty hack above :(
     @logger.debug("running puppet and deploying r10k...")
-    ssh(container, "#{puppet_agent_t} && r10k deploy environment -pv")
+    ssh(container, "#{puppet_agent_t} && r10k deploy environment -pv && systemctl restart pe-puppetserver")
   end
 
   # run puppet - to generate a node in the console/prove it still works after

@@ -24,5 +24,3 @@ puppet_enterprise::profile::console::delayed_job_workers: 1
 puppet_enterprise::profile::database::shared_buffers: '4MB' 
 puppet_enterprise::profile::orchestrator::pcp_timeout: 10 
 
-# gitserver/code manager off
-r_profile::puppet::master::git_server: false
