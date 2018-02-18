@@ -353,25 +353,8 @@ def build_main_image()
     }
   }
 
-  @logger.debug("uploading classifier script")
-  scp(container, "classify_filesync_off.rb", "/usr/local/bin/")
-
   # install puppet, deactivate filesync via NC API (its the only way)
   # and then run puppet
-  if @r10k_control
-    @logger.debug("setup csr attributes...")
-    csr_dir = '/etc/puppetlabs/puppet'
-    csr_file = "#{csr_dir}/csr_attributes.yaml"
-    ssh(
-      container,
-      " mkdir -p #{csr_dir} && \
-      echo 'extension_requests:' > #{csr_file} && \
-      echo '    pp_role: r_role::puppet::master' >> #{csr_file} && \
-      mkdir -p #{@code_dir} && \
-      echo 'r_profile::puppet::master::git_server: false' > #{@code_dir}/system.yaml"
-    )
-  end
-
   @logger.debug("installing puppet...")
   ssh(
     container,
@@ -380,28 +363,25 @@ def build_main_image()
     mkdir -p #{@global_mod_dir} && \
     /opt/puppetlabs/puppet/bin/gem install puppetclassify && \
     /opt/puppetlabs/puppet/bin/gem install pe_rbac && \
+    /opt/puppetlabs/puppet/bin/gem install ncio && \
+    /opt/puppetlabs/puppet/bin/gem install ncedit && \
+
     /opt/puppetlabs/server/bin/puppetserver gem install puppetclassify && \
-    chmod +x /usr/local/bin/classify_filesync_off.rb && \
-    /usr/local/bin/classify_filesync_off.rb && \
     systemctl restart pe-puppetserver && \
     #{puppet_agent_t}
   ")
 
   if @r10k_control then
-   @logger.debug("installing r10k...")
-    ssh(
-      container,
-      "cd /root && 
-      mkdir -p #{csr_dir}
-      git clone #{@r10k_control_url} && \
-      cd r10k-control && \
-      ./bootstrap.sh
-    ")
 
-    # after our initial puppet run, we can put run r10k to deploy again to get
-    # rid of our files dropped by the nasty hack above :(
-    @logger.debug("running puppet and deploying r10k...")
-    ssh(container, "#{puppet_agent_t} && r10k deploy environment -pv && systemctl restart pe-puppetserver")
+    @logger.debug("installing r10k...")
+      ssh(
+        container,
+	"/opt/puppetlabs/puppet/bin/ncedit classes --group-name 'PE Master' --class-name puppet_enterprise::profile::master --param-name r10k_remote --param-value #{@r10k_control_url} && #{puppet_agent_t} ; /opt/puppetlabs/puppet/bin/r10k deploy environment -pv ; systemctl restart pe-puppetserver && sleep 120 && ncedit classes --group-name 'Site Puppet Masters' --class-name r_role::puppet::master --rule '[\"and\", [\"=\",[\"fact\",\"fqdn\"],\"'$(facter fqdn)'\"]]' --rule-mode replace"
+      )
+
+
+      @logger.debug("running puppet...")
+      ssh(container, puppet_agent_t)
   end
 
   # run puppet - to generate a node in the console/prove it still works after

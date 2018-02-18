@@ -1,20 +1,20 @@
-FROM centos:7
-MAINTAINER Geoff Williams <geoff.williams@puppetlabs.com>
-ENV container docker
-ENV pe_version <%= @pe_version %>
+FROM centos:7.4.1708
 
-# puppet needs full systemd
-RUN yum -y swap -- remove systemd-container systemd-container-libs -- install systemd systemd-libs \
-  yum -y update; yum clean all; \
-  (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
-  rm -f /lib/systemd/system/multi-user.target.wants/*;\
-  rm -f /etc/systemd/system/*.wants/*;\
-  rm -f /lib/systemd/system/local-fs.target.wants/*; \
-  rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
-  rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
-  rm -f /lib/systemd/system/basic.target.wants/*;\
-  rm -f /lib/systemd/system/anaconda.target.wants/*;
-  VOLUME [ "/sys/fs/cgroup" ]
+ENV container docker
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == \
+systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+rm -f /lib/systemd/system/multi-user.target.wants/*;\
+rm -f /etc/systemd/system/*.wants/*;\
+rm -f /lib/systemd/system/local-fs.target.wants/*; \
+rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+rm -f /lib/systemd/system/basic.target.wants/*;\
+rm -f /lib/systemd/system/anaconda.target.wants/*;
+VOLUME [ "/sys/fs/cgroup" ]
+CMD ["/usr/sbin/init"]
+
+MAINTAINER Geoff Williams <geoff.williams@puppetlabs.com>
+ENV pe_version <%= @pe_version %>
 
 # turn off annoying yum pauses
 RUN echo "metadata_expire=never" >> /etc/yum.conf
@@ -65,8 +65,6 @@ EXPOSE 9000
 
 # stop DiD from eating all disk if we choose to use it
 VOLUME [ "/var/lib/docker" ]
-
-CMD ["/usr/sbin/init"]
 
 # !!!CANNOT!!! RUN THE INSTALLER UNTIL WE HAVE RELOADED IN PRIVILEGED MODE
 #&& ./puppet-enterprise-installer -a answers/all-in-one.answers.txt
