@@ -376,7 +376,7 @@ def build_main_image()
     @logger.debug("installing r10k...")
       ssh(
         container,
-	"/opt/puppetlabs/puppet/bin/ncedit classes --group-name 'PE Master' --class-name puppet_enterprise::profile::master --param-name r10k_remote --param-value #{@r10k_control_url} && #{puppet_agent_t} ; /opt/puppetlabs/puppet/bin/r10k deploy environment -pv ; systemctl restart pe-puppetserver && sleep 120 && ncedit classes --group-name 'Site Puppet Masters' --class-name r_role::puppet::master --rule '[\"and\", [\"=\",[\"fact\",\"fqdn\"],\"'$(facter fqdn)'\"]]' --rule-mode replace"
+	"/opt/puppetlabs/puppet/bin/ncedit classes --group-name 'PE Master' --class-name puppet_enterprise::profile::master --param-name r10k_remote --param-value #{@r10k_control_url} && #{puppet_agent_t} ; /opt/puppetlabs/puppet/bin/r10k deploy environment -pv ; systemctl restart pe-puppetserver && sleep 120 && ncedit update_classes && ncedit classes --group-name 'Site Puppet Masters' --class-name r_role::puppet::master --rule '[\"and\", [\"=\",[\"fact\",\"fqdn\"],\"'$(facter fqdn)'\"]]' --rule-mode replace"
       )
 
 
