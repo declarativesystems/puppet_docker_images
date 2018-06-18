@@ -101,7 +101,6 @@ def parse_command_line()
   @regular          = true
   @code_dir         = "/etc/puppetlabs/code"
   @global_mod_dir   = "#{@code_dir}/modules"
-  @prod_hiera_dir   = "#{@code_dir}/environments/production/hieradata"
   @r10k_control     = true
   @r10k_control_url = "https://github.com/GeoffWilliams/r10k-control"
   @old_installer    = false
@@ -358,7 +357,8 @@ def build_main_image()
   @logger.debug("installing puppet...")
   ssh(
     container,
-    "cd /root/#{pe_media} && \
+    "yum clean all && \
+    cd /root/#{pe_media} && \
     #{pe_install_cmd} && \
     mkdir -p #{@global_mod_dir} && \
     /opt/puppetlabs/puppet/bin/gem install puppetclassify && \
@@ -367,9 +367,15 @@ def build_main_image()
     /opt/puppetlabs/puppet/bin/gem install ncedit && \
 
     /opt/puppetlabs/server/bin/puppetserver gem install puppetclassify && \
-    systemctl restart pe-puppetserver && \
-    #{puppet_agent_t}
-  ")
+    systemctl restart pe-puppetserver"
+  )
+
+  @logger.debug("installing golden hiera and running puppet...")
+  scp(container, "hiera.yaml", "/etc/puppetlabs/puppet/hiera.yaml")
+  ssh(
+    container,
+    puppet_agent_t
+  )
 
   if @r10k_control then
 
@@ -416,14 +422,7 @@ def lowmem()
   # Enable low memory (and low performance) by uploading a YAML file with some
   # puppet hiera settings.  We do this AFTER we have installed puppet into a 
   # container so that we don't have to rebuild it
-  if @r10k_control then
-    @logger.debug("Copying extra YAML for r10K environments")
-    dest_file = "#{@code_dir}/system.yaml"
-  else
-    # without R10K, just copy to the default location
-    @logger.debug("Copying extra YAML for vanila environments")
-    dest_file = "#{@prod_hiera_dir}/common.yaml"
-  end
+  dest_file = "/etc/puppetlabs/puppet_enterprise.yaml"
   @logger.debug("uploading low memory hiera defaults to #{dest_file}")
   ssh(container, "mkdir -p #{File.dirname(dest_file)}")
   scp(container, "./lowmem.yaml", dest_file)

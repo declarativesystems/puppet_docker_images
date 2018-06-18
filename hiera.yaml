@@ -1,0 +1,21 @@
+# hiera.yaml
+#
+# This file has been modified from the vendor's copy:
+#   1. include this notice
+#   2. read from /etc/puppetlabs/puppet_enterprise.yaml as a top-level hierarchy
+---
+# Hiera 5 Global configuration file
+
+version: 5
+
+# defaults:
+#   data_hash: yaml_data
+# hierarchy:
+#  - name: Common
+#    data_hash: yaml_data
+hierarchy:
+ - name: Classifier Configuration Data
+   data_hash: classifier_data
+ - name: 'Puppet Enterprise Settings'
+   data_hash: yaml_data
+   path: /etc/puppetlabs/puppet_enterprise.yaml
