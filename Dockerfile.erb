@@ -42,7 +42,7 @@ ADD ./puppet-enterprise-${pe_version}-el-7-x86_64.tar.gz /root
 
 # fix locale, paths and terminal globally
 RUN echo 'export LC_ALL="en_US.UTF-8"' >> /etc/profile.d/zz_docker_puppet.sh && \
-  echo 'export PATH=/opt/puppetlabs/puppet/bin/:${PATH}' >> /etc/profile.d/zz_docker_puppet.sh && \
+  echo 'export PATH=/opt/puppetlabs/puppet/bin:/opt/puppetlabs/bin:${PATH}' >> /etc/profile.d/zz_docker_puppet.sh && \
   echo 'export TERM=xterm' >> /etc/profile.d/zz_docker_puppet.sh
 
 # puppet
