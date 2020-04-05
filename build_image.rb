@@ -333,9 +333,9 @@ def build_main_image()
     pe_install_cmd = "./puppet-enterprise-installer -a /root/answers.txt"
   else
     @logger.debug("uploading meep config file")
-    scp(container, "answers/pe.conf", "/root/pe.conf")
+    scp(container, "answers/pe.conf.2.0", "/root/pe.conf.2.0")
     puts "meep config file uploaded"
-    pe_install_cmd = "./puppet-enterprise-installer -c /root/pe.conf"
+    pe_install_cmd = "bash --login -c './puppet-enterprise-installer -c /root/pe.conf.2.0'"
   end
 
   # upload agent installers if available

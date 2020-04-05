@@ -16,9 +16,6 @@ CMD ["/usr/sbin/init"]
 MAINTAINER Geoff Williams <geoff.williams@puppetlabs.com>
 ENV pe_version <%= @pe_version %>
 
-# turn off annoying yum pauses
-RUN echo "metadata_expire=never" >> /etc/yum.conf
-
 # essential packages
 RUN yum install -y sudo curl ntpdate which git cronie wget policycoreutils policycoreutils-restorecond iptables-services iptables
 RUN yum groupinstall -y 'Development Tools'
@@ -65,6 +62,9 @@ EXPOSE 9000
 
 # stop DiD from eating all disk if we choose to use it
 VOLUME [ "/var/lib/docker" ]
+
+# fuck knows
+RUN rm -rf /etc/puppetlabs
 
 # !!!CANNOT!!! RUN THE INSTALLER UNTIL WE HAVE RELOADED IN PRIVILEGED MODE
 #&& ./puppet-enterprise-installer -a answers/all-in-one.answers.txt
